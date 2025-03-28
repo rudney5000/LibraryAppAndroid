@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">LibraryApp</string>
+    <string name="item_ic_description">Icon for library item</string>
+</resources>

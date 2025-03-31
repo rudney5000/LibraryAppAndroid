@@ -1,6 +1,5 @@
 package ru.bmstu.libraryapp.presentation.ui.adapters
 
-import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.ListAdapter
@@ -32,9 +31,12 @@ class LibraryItemAdapter(
             return
         }
 
-        val bundle = payloads[0] as Bundle
-        if (bundle.getBoolean("availability_changed", false)) {
-            holder.updateAvailability(getItem(position).isAvailable)
+        val payload = payloads[0] as? LibraryItemPayload
+        when (payload) {
+            is LibraryItemPayload.AvailabilityChanged -> {
+                holder.updateAvailability(getItem(position))
+            }
+            null -> super.onBindViewHolder(holder, position, payloads)
         }
     }
 }

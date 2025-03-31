@@ -31,17 +31,18 @@ class LibraryItemViewHolder(
                 is BaseLibraryItem -> R.drawable.ic_book_24
             })
 
-            updateAvailability(item.isAvailable)
+            updateAvailability(item)
         }
     }
 
-    fun updateAvailability(isAvailable: Boolean) {
-        val alpha = if (isAvailable) 1f else 0.3f
+    fun updateAvailability(item: LibraryItem) {
+        currentItem = item
+        val alpha = if (item.isAvailable) 1f else 0.3f
         binding.apply {
             titleText.alpha = alpha
             idText.alpha = alpha
             cardView.elevation = itemView.resources.getDimension(
-                if (isAvailable) R.dimen.card_elevation_normal else R.dimen.card_elevation_disabled
+                if (item.isAvailable) R.dimen.card_elevation_normal else R.dimen.card_elevation_disabled
             )
         }
     }

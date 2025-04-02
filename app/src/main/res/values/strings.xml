@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">LibraryApp</string>
-    <string name="item_ic_description">Icon for library item</string>
+    <string name="item_id_format">ID: %d</string>
+    <string name="item_clicked_format">Элемент с id %d</string>
 </resources>

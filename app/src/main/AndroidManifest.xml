@@ -22,7 +22,7 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".presentation.ui.adapters.LibraryItemDetailActivity"
+            android:name=".presentation.views.ativities.LibraryItemDetailActivity"
             android:exported="false" />
     </application>
 

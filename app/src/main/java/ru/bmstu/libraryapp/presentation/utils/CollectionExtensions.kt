@@ -1,4 +1,4 @@
-package ru.bmstu.libraryapp.utils.extensions
+package ru.bmstu.libraryapp.presentation.utils
 /**
  * Функция-расширение для фильтрации списка по указанному типу.
  * Использует reified для доступа к информации о типе во время выполнения.

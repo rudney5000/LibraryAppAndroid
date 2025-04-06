@@ -1,4 +1,4 @@
-package ru.bmstu.libraryapp.presentation.ui.adapters
+package ru.bmstu.libraryapp.presentation.views.adapters
 
 import androidx.recyclerview.widget.RecyclerView
 import ru.bmstu.libraryapp.R
@@ -29,6 +29,7 @@ class LibraryItemViewHolder(
                 is Newspaper -> R.drawable.ic_newspaper_24
                 is Disk -> R.drawable.ic_disk_24
                 is BaseLibraryItem -> R.drawable.ic_book_24
+                else -> R.drawable.ic_book_24
             })
 
             updateAvailability(item)

@@ -1,83 +1,236 @@
+//package ru.bmstu.libraryapp
+//
+//import android.os.Bundle
+//import android.widget.Toast
+//import androidx.activity.result.contract.ActivityResultContracts
+//import androidx.appcompat.app.AlertDialog
+//import androidx.appcompat.app.AppCompatActivity
+//import androidx.recyclerview.widget.ItemTouchHelper
+//import androidx.recyclerview.widget.LinearLayoutManager
+//import androidx.recyclerview.widget.RecyclerView
+//import ru.bmstu.libraryapp.data.datasources.InMemoryDataSource
+//import ru.bmstu.libraryapp.data.repositories.LibraryRepositoryImpl
+//import ru.bmstu.libraryapp.databinding.ActivityMainBinding
+//import ru.bmstu.libraryapp.domain.entities.Book
+//import ru.bmstu.libraryapp.domain.entities.Disk
+//import ru.bmstu.libraryapp.domain.entities.DiskType
+//import ru.bmstu.libraryapp.domain.entities.LibraryItem
+//import ru.bmstu.libraryapp.domain.entities.Month
+//import ru.bmstu.libraryapp.domain.entities.Newspaper
+//import ru.bmstu.libraryapp.domain.entities.ParcelableLibraryItem
+//import ru.bmstu.libraryapp.domain.repositories.LibraryRepository
+//import ru.bmstu.libraryapp.presentation.views.adapters.LibraryItemAdapter
+//import ru.bmstu.libraryapp.presentation.views.ativities.LibraryItemDetailActivity
+//
+//class MainActivity : AppCompatActivity() {
+//    private lateinit var binding: ActivityMainBinding
+//    private lateinit var adapter: LibraryItemAdapter
+//    private val repository: LibraryRepository = LibraryRepositoryImpl(InMemoryDataSource())
+//
+//    override fun onCreate(savedInstanceState: Bundle?) {
+//        super.onCreate(savedInstanceState)
+//        binding = ActivityMainBinding.inflate(layoutInflater)
+//        setContentView(binding.root)
+//
+//        setupRecyclerView()
+//        setupSwipeToDelete()
+//        setupFab()
+//        loadLibraryItems()
+//    }
+//
+//    private val editItemLauncher = registerForActivityResult(
+//        ActivityResultContracts.StartActivityForResult()
+//    ) { result ->
+//        result.data?.let { data ->
+//            val item = data.getParcelableExtra<ParcelableLibraryItem>(LibraryItemDetailActivity.EXTRA_ITEM)
+//            val isNewItem = data.getBooleanExtra(LibraryItemDetailActivity.EXTRA_IS_NEW_ITEM, false)
+//
+//            loadLibraryItems()
+//
+//            if (isNewItem) {
+//                binding.recyclerView.smoothScrollToPosition(0)
+//                Toast.makeText(this, "Nouvel élément ajouté", Toast.LENGTH_SHORT).show()
+//            } else {
+//                item?.let {
+//                    val position = adapter.currentList.indexOfFirst { it.id == item.id }
+//                    if (position != -1) {
+//                        binding.recyclerView.smoothScrollToPosition(position)
+//                        Toast.makeText(this, "Élément modifié", Toast.LENGTH_SHORT).show()
+//                    }
+//                }
+//            }
+//        }
+//    }
+//
+//    private fun setupRecyclerView() {
+//        adapter = LibraryItemAdapter { item ->
+//            val intent = LibraryItemDetailActivity.createIntent(
+//                context = this,
+//                item = item,
+//                mode = LibraryItemDetailActivity.Companion.DetailMode.VIEW
+//            )
+//            editItemLauncher.launch(intent)
+//        }
+//        binding.recyclerView.apply {
+//            layoutManager = LinearLayoutManager(this@MainActivity)
+//            adapter = this@MainActivity.adapter
+//        }
+//    }
+//
+//    private fun setupFab() {
+//        binding.addFab.setOnClickListener {
+//            showItemTypeDialog()
+//        }
+//    }
+//
+//    private fun showItemTypeDialog() {
+//        val types = arrayOf(
+//            getString(R.string.item_type_book),
+//            getString(R.string.item_type_newspaper),
+//            getString(R.string.item_type_disk)
+//        )
+//        AlertDialog.Builder(this)
+//            .setTitle(getString(R.string.dialog_choose_item_type))
+//            .setItems(types) { _, which ->
+//                val newItem = when (which) {
+//                    0 -> Book(0, "", true, 0, "")
+//                    1 -> Newspaper(0, "", true, 0, Month.JANUARY)
+//                    2 -> Disk(0, "", true, DiskType.CD)
+//                    else -> throw IllegalArgumentException("Unknown type")
+//                }
+//                val intent = LibraryItemDetailActivity.createIntent(
+//                    context = this,
+//                    item = newItem,
+//                    mode = LibraryItemDetailActivity.Companion.DetailMode.CREATE
+//                )
+//                editItemLauncher.launch(intent)
+//            }
+//            .show()
+//    }
+//
+//    private fun setupSwipeToDelete() {
+//        val itemTouchHelper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(
+//            0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT
+//        ) {
+//            override fun onMove(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder,
+//                                target: RecyclerView.ViewHolder) = false
+//
+//            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
+//                val position = viewHolder.bindingAdapterPosition
+//                if (position != RecyclerView.NO_POSITION) {
+//                    val item = adapter.currentList[position]
+//                    repository.deleteItem(item.id)
+//                    loadLibraryItems()
+//                }
+//            }
+//        })
+//        itemTouchHelper.attachToRecyclerView(binding.recyclerView)
+//    }
+//
+//    private fun loadLibraryItems() {
+//        val allItems = mutableListOf<LibraryItem>().apply {
+//            addAll(repository.getAllBooks())
+//            addAll(repository.getAllNewspapers())
+//            addAll(repository.getAllDisks())
+//        }
+//        adapter.submitList(allItems)
+//    }
+//}
+
 package ru.bmstu.libraryapp
 
-import android.content.Intent
 import android.os.Bundle
-import androidx.activity.enableEdgeToEdge
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import ru.bmstu.libraryapp.data.datasources.InMemoryDataSource
 import ru.bmstu.libraryapp.data.repositories.LibraryRepositoryImpl
 import ru.bmstu.libraryapp.databinding.ActivityMainBinding
-import ru.bmstu.libraryapp.domain.entities.BaseLibraryItem
 import ru.bmstu.libraryapp.domain.entities.Book
 import ru.bmstu.libraryapp.domain.entities.Disk
 import ru.bmstu.libraryapp.domain.entities.DiskType
-import ru.bmstu.libraryapp.domain.entities.LibraryItem
 import ru.bmstu.libraryapp.domain.entities.Month
 import ru.bmstu.libraryapp.domain.entities.Newspaper
+import ru.bmstu.libraryapp.domain.entities.ParcelableLibraryItem
 import ru.bmstu.libraryapp.domain.repositories.LibraryRepository
-import ru.bmstu.libraryapp.presentation.ui.adapters.LibraryItemAdapter
-import ru.bmstu.libraryapp.presentation.ui.adapters.LibraryItemDetailActivity
+import ru.bmstu.libraryapp.presentation.views.ativities.LibraryItemDetailActivity
+import ru.bmstu.libraryapp.presentation.viewmodels.MainViewModel
+import ru.bmstu.libraryapp.presentation.views.adapters.LibraryItemAdapter
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var adapter: LibraryItemAdapter
-    private val items = mutableListOf<LibraryItem>()
     private val repository: LibraryRepository = LibraryRepositoryImpl(InMemoryDataSource())
+
+    private val viewModel: MainViewModel by viewModels {
+        MainViewModel.Factory(repository)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
-        enableEdgeToEdge()
         setContentView(binding.root)
 
         setupRecyclerView()
         setupSwipeToDelete()
         setupFab()
-        loadLibraryItems()
+        observeViewModel()
+    }
 
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-            insets
+    private fun observeViewModel() {
+        viewModel.libraryItems.observe(this) { items ->
+            adapter.submitList(items)
+        }
+
+        viewModel.loading.observe(this) { isLoading ->
+//            binding.progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
+        }
+
+        viewModel.error.observe(this) { errorMessage ->
+            errorMessage?.let {
+                Toast.makeText(this, it, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private val editItemLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        result.data?.let { data ->
+            val item = data.getParcelableExtra<ParcelableLibraryItem>(LibraryItemDetailActivity.EXTRA_ITEM)
+            val isNewItem = data.getBooleanExtra(LibraryItemDetailActivity.EXTRA_IS_NEW_ITEM, false)
+
+            viewModel.loadAllItems()
+
+            if (isNewItem) {
+                binding.recyclerView.smoothScrollToPosition(0)
+                Toast.makeText(this, "Nouvel élément ajouté", Toast.LENGTH_SHORT).show()
+            } else {
+                item?.let {
+                    val position = adapter.currentList.indexOfFirst { it.id == item.id }
+                    if (position != -1) {
+                        binding.recyclerView.smoothScrollToPosition(position)
+                        Toast.makeText(this, "Élément modifié", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
         }
     }
 
     private fun setupRecyclerView() {
-        adapter = LibraryItemAdapter() { item ->
-            val intent = Intent(this, LibraryItemDetailActivity::class.java).apply {
-                putExtra("item_id", item.id)
-                putExtra("item_title", item.title)
-                putExtra("item_is_available", item.isAvailable)
-                putExtra("item_type", when(item) {
-                    is Book -> "book"
-                    is Newspaper -> "newspaper"
-                    is Disk -> "disk"
-                    else -> ""
-                })
-                when(item) {
-                    is Book -> {
-                        putExtra("item_author", item.author)
-                        putExtra("item_pages", item.pages)
-                    }
-                    is Newspaper -> {
-                        putExtra("item_issue_number", item.issueNumber)
-                        putExtra("item_month", item.month.ordinal)
-                    }
-                    is Disk -> {
-                        putExtra("item_disk_type", item.type.name)
-                    }
-                    else -> {}
-                }
-            }
-            startActivityForResult(intent, EDIT_ITEM_REQUEST_CODE)
+        adapter = LibraryItemAdapter { item ->
+            val intent = LibraryItemDetailActivity.createIntent(
+                context = this,
+                item = item,
+                mode = LibraryItemDetailActivity.Companion.DetailMode.VIEW
+            )
+            editItemLauncher.launch(intent)
         }
-
         binding.recyclerView.apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
             adapter = this@MainActivity.adapter
@@ -91,75 +244,28 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showItemTypeDialog() {
-        val types = arrayOf("Book", "Newspaper", "Disk")
+        val types = arrayOf(
+            getString(R.string.item_type_book),
+            getString(R.string.item_type_newspaper),
+            getString(R.string.item_type_disk)
+        )
         AlertDialog.Builder(this)
-            .setTitle("Choose item type")
+            .setTitle(getString(R.string.dialog_choose_item_type))
             .setItems(types) { _, which ->
-                val itemType = when (which) {
-                    0 -> "book"
-                    1 -> "newspaper"
-                    2 -> "disk"
-                    else -> "book"
+                val newItem = when (which) {
+                    0 -> Book(0, "", true, 0, "")
+                    1 -> Newspaper(0, "", true, 0, Month.JANUARY)
+                    2 -> Disk(0, "", true, DiskType.CD)
+                    else -> throw IllegalArgumentException("Unknown type")
                 }
-                val intent = Intent(this, LibraryItemDetailActivity::class.java).apply {
-                    putExtra("item_type", itemType)
-                }
-                startActivityForResult(intent, ADD_ITEM_REQUEST_CODE)
+                val intent = LibraryItemDetailActivity.createIntent(
+                    context = this,
+                    item = newItem,
+                    mode = LibraryItemDetailActivity.Companion.DetailMode.CREATE
+                )
+                editItemLauncher.launch(intent)
             }
             .show()
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (resultCode == RESULT_OK && data != null) {
-            val id = data.getIntExtra("item_id", -1)
-            val title = data.getStringExtra("item_title") ?: return
-            val isAvailable = data.getBooleanExtra("item_is_available", false)
-            val type = data.getStringExtra("item_type") ?: return
-
-            val newItem = when (type) {
-                "book" -> Book(
-                    id = id,
-                    title = title,
-                    isAvailable = isAvailable,
-                    author = data.getStringExtra("item_author") ?: "",
-                    pages = data.getIntExtra("item_pages", 0)
-                )
-                "newspaper" -> Newspaper(
-                    id = id,
-                    title = title,
-                    isAvailable = isAvailable,
-                    issueNumber = data.getIntExtra("item_issue_number", 0),
-                    month = Month.entries[data.getIntExtra("item_month", 0)]
-                )
-                "disk" -> Disk(
-                    id = id,
-                    title = title,
-                    isAvailable = isAvailable,
-                    type = DiskType.valueOf(data.getStringExtra("item_disk_type") ?: DiskType.entries[0].name)
-                )
-                else -> null
-            }
-
-            when (requestCode) {
-                ADD_ITEM_REQUEST_CODE -> {
-                    newItem?.let {
-                        items.add(it)
-                        adapter.notifyItemInserted(items.size - 1)
-                    }
-                }
-                EDIT_ITEM_REQUEST_CODE -> {
-                    newItem?.let { updated ->
-                        val index = items.indexOfFirst { it.id == updated.id }
-                        if (index != -1) {
-                            items[index] = updated
-                            adapter.notifyItemChanged(index)
-                        }
-                    }
-                }
-            }
-        }
     }
 
     private fun setupSwipeToDelete() {
@@ -172,26 +278,11 @@ class MainActivity : AppCompatActivity() {
             override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
                 val position = viewHolder.bindingAdapterPosition
                 if (position != RecyclerView.NO_POSITION) {
-                    val currentList = adapter.currentList.toMutableList()
-                    currentList.removeAt(position)
-                    adapter.submitList(currentList)
+                    val item = adapter.currentList[position]
+                    viewModel.deleteItem(item.id)
                 }
             }
         })
         itemTouchHelper.attachToRecyclerView(binding.recyclerView)
-    }
-
-    private fun loadLibraryItems() {
-        val allItems = mutableListOf<BaseLibraryItem>().apply {
-            addAll(repository.getAllBooks())
-            addAll(repository.getAllNewspapers())
-            addAll(repository.getAllDisks())
-        }
-        adapter.submitList(allItems as List<LibraryItem>?)
-    }
-
-    companion object {
-        private const val ADD_ITEM_REQUEST_CODE = 1
-        private const val EDIT_ITEM_REQUEST_CODE = 2
     }
 }

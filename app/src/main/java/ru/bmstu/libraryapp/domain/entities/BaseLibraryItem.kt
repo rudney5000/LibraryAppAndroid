@@ -4,6 +4,7 @@ package ru.bmstu.libraryapp.domain.entities
  * Абстрактный базовый класс для всех элементов библиотеки.
  * Реализует основные функции интерфейса ru.bmstu.libraryapp.domain.entities.LibraryItem.
  */
+
  abstract class BaseLibraryItem(
     override val id: Int,
     override val title: String,

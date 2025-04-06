@@ -54,14 +54,11 @@
                     android:enabled="false"/>
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- Champs spécifiques pour chaque type (livre, journal, disque) -->
             <LinearLayout
                 android:id="@+id/specificFieldsContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
-
-                <!-- Les champs seront ajoutés dynamiquement selon le type -->
             </LinearLayout>
 
             <com.google.android.material.switchmaterial.SwitchMaterial

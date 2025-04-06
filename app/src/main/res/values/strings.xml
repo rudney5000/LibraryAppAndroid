@@ -7,4 +7,8 @@
     <string name="title_hint">Название</string>
     <string name="id_hint">ID</string>
     <string name="add_item">Добавить элемент</string>
+    <string name="dialog_choose_item_type">Choose item type</string>
+    <string name="item_type_book">Book</string>
+    <string name="item_type_newspaper">Newspaper</string>
+    <string name="item_type_disk">Disk</string>
 </resources>

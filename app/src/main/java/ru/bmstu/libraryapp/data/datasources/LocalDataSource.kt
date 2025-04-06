@@ -10,4 +10,9 @@ interface LocalDataSource {
      * @return Список всех элементов библиотеки
      */
     fun getAllItems(): List<LibraryItem>
+
+    fun deleteItem(itemId: Int): Boolean
+
+    fun addItem(item: LibraryItem): Boolean
+    fun updateItem(item: LibraryItem): Boolean
 }

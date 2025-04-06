@@ -1,16 +1,19 @@
 package ru.bmstu.libraryapp.domain.entities
 
+import kotlinx.parcelize.Parcelize
+
 /**
  * Класс, представляющий книгу в библиотеке.
  * Наследуется от BaseLibraryItem и добавляет специфичные для книги свойства.
  */
+@Parcelize
 data class Book(
     override val id: Int,
     override val title: String,
     override var isAvailable: Boolean,
     val pages: Int,
     val author: String
-) : BaseLibraryItem(id, title, isAvailable) {
+) : BaseLibraryItem(id, title, isAvailable), ParcelableLibraryItem {
 
     /**
      * Получение подробной информации о книге.

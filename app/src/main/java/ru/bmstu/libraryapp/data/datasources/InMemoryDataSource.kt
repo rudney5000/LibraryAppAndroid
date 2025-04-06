@@ -1,10 +1,12 @@
 package ru.bmstu.libraryapp.data.datasources
+import ru.bmstu.libraryapp.domain.entities.BaseLibraryItem
 import ru.bmstu.libraryapp.domain.entities.Book
 import ru.bmstu.libraryapp.domain.entities.Disk
 import ru.bmstu.libraryapp.domain.entities.DiskType
 import ru.bmstu.libraryapp.domain.entities.LibraryItem
 import ru.bmstu.libraryapp.domain.entities.Month
 import ru.bmstu.libraryapp.domain.entities.Newspaper
+import ru.bmstu.libraryapp.domain.entities.ParcelableLibraryItem
 
 /**
      * Реализация источника данных в памяти.
@@ -43,4 +45,72 @@ import ru.bmstu.libraryapp.domain.entities.Newspaper
             allItems.addAll(disks)
             return allItems
         }
+
+    override fun deleteItem(itemId: Int): Boolean {
+        books.removeIf { it.id == itemId }
+        newspapers.removeIf { it.id == itemId }
+        disks.removeIf { it.id == itemId }
+        return true
     }
+
+    override fun addItem(item: LibraryItem): Boolean {
+        val newId = generateNewId(item)
+        when (item) {
+            is Book -> books.add(0, item.copy(id = newId))
+            is Newspaper -> newspapers.add(0, item.copy(id = newId))
+            is Disk -> disks.add(0, item.copy(id = newId))
+            is BaseLibraryItem -> TODO()
+            is ParcelableLibraryItem -> TODO()
+        }
+        return true
+    }
+
+    override fun updateItem(item: LibraryItem): Boolean {
+        when (item) {
+            is Book -> {
+                val index = books.indexOfFirst { it.id == item.id }
+                if (index != -1) {
+                    books[index] = item
+                    return true
+                }
+            }
+            is Newspaper -> {
+                val index = newspapers.indexOfFirst { it.id == item.id }
+                if (index != -1) {
+                    newspapers[index] = item
+                    return true
+                }
+            }
+            is Disk -> {
+                val index = disks.indexOfFirst { it.id == item.id }
+                if (index != -1) {
+                    disks[index] = item
+                    return true
+                }
+            }
+
+            is BaseLibraryItem -> TODO()
+            is ParcelableLibraryItem -> TODO()
+        }
+        return false
+    }
+
+    private fun generateNewId(item: LibraryItem): Int {
+        val prefix = when (item) {
+            is Book -> 1000
+            is Newspaper -> 2000
+            is Disk -> 3000
+            is BaseLibraryItem -> TODO()
+            is ParcelableLibraryItem -> TODO()
+        }
+        val existingIds = when (item) {
+            is Book -> books.map { it.id }
+            is Newspaper -> newspapers.map { it.id }
+            is Disk -> disks.map { it.id }
+            is BaseLibraryItem -> TODO()
+            is ParcelableLibraryItem -> TODO()
+        }
+        return if (existingIds.isEmpty()) prefix + 1
+        else existingIds.maxOrNull()!! + 1
+    }
+}

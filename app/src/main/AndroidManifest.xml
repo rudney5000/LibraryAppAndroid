@@ -21,6 +21,9 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity
+            android:name=".presentation.views.ativities.LibraryItemDetailActivity"
+            android:exported="false" />
     </application>
 
 </manifest>

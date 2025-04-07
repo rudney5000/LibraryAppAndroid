@@ -34,4 +34,18 @@ interface LibraryRepository {
      * @param isAvailable Новое состояние доступности
      */
     fun updateItemAvailability(item: LibraryItem, isAvailable: Boolean)
+
+    /**
+     * Удаление элемента библиотеки по ID.
+     * @param itemId ID элемента для удаления
+     * @return true если элемент был успешно удален, false в противном случае
+     */
+    fun deleteItem(itemId: Int): Boolean
+
+    fun addBook(book: Book)
+    fun addNewspaper(newspaper: Newspaper)
+    fun addDisk(disk: Disk)
+    fun updateBook(book: Book)
+    fun updateNewspaper(newspaper: Newspaper)
+    fun updateDisk(disk: Disk)
 }

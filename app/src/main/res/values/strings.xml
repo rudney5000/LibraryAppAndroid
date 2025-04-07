@@ -2,4 +2,25 @@
     <string name="app_name">LibraryApp</string>
     <string name="item_id_format">ID: %d</string>
     <string name="item_clicked_format">Элемент с id %d</string>
+    <string name="available">Доступен</string>
+    <string name="save">Сохранить</string>
+    <string name="title_hint">Название</string>
+    <string name="id_hint">ID</string>
+    <string name="add_item">Добавить элемент</string>
+    <string name="dialog_choose_item_type">Choose item type</string>
+    <string name="item_type_book">Book</string>
+    <string name="item_type_newspaper">Newspaper</string>
+    <string name="item_type_disk">Disk</string>
+
+    <string name="field_author">Author</string>
+    <string name="field_pages">Pages</string>
+    <string name="field_issue_number">Issue Number</string>
+    <string name="field_month">Month</string>
+    <string name="field_disk_type">Type</string>
+
+    <string name="tag_author" translatable="false">author</string>
+    <string name="tag_pages" translatable="false">pages</string>
+    <string name="tag_issue_number" translatable="false">issue_number</string>
+    <string name="tag_month" translatable="false">month</string>
+    <string name="tag_disk_type" translatable="false">disk_type</string>
 </resources>

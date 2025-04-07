@@ -1,17 +1,20 @@
 package ru.bmstu.libraryapp.domain.entities
+
+import kotlinx.parcelize.Parcelize
 import java.util.*
 
 /**
  * Класс, представляющий газету в библиотеке.
  * Наследуется от BaseLibraryItem и добавляет номер выпуска и месяц выпуска.
  */
+@Parcelize
 data class Newspaper(
     override val id: Int,
     override val title: String,
     override var isAvailable: Boolean,
     val issueNumber: Int,
     val month: Month
-) : BaseLibraryItem(id, title, isAvailable) {
+) : BaseLibraryItem(id, title, isAvailable), ParcelableLibraryItem {
 
     /**
      * Получение подробной информации о газете.

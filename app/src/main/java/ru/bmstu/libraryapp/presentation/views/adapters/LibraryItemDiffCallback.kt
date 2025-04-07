@@ -1,4 +1,4 @@
-package ru.bmstu.libraryapp.presentation.ui.adapters
+package ru.bmstu.libraryapp.presentation.views.adapters
 
 import androidx.recyclerview.widget.DiffUtil
 import ru.bmstu.libraryapp.domain.entities.LibraryItem

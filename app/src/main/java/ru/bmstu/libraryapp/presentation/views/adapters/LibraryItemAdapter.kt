@@ -1,4 +1,4 @@
-package ru.bmstu.libraryapp.presentation.ui.adapters
+package ru.bmstu.libraryapp.presentation.views.adapters
 
 import android.view.LayoutInflater
 import android.view.ViewGroup

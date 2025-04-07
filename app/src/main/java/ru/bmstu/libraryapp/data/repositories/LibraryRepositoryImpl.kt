@@ -6,7 +6,7 @@ import ru.bmstu.libraryapp.domain.entities.Disk
 import ru.bmstu.libraryapp.domain.entities.LibraryItem
 import ru.bmstu.libraryapp.domain.entities.Newspaper
 import ru.bmstu.libraryapp.domain.repositories.LibraryRepository
-import ru.bmstu.libraryapp.utils.extensions.filterByType
+import ru.bmstu.libraryapp.presentation.utils.filterByType
 
 /**
  * Реализация репозитория библиотеки.
@@ -42,5 +42,32 @@ class LibraryRepositoryImpl(private val dataSource: LocalDataSource) : LibraryRe
         if (item is BaseLibraryItem) {
             item.changeAvailability(isAvailable)
         }
+    }
+
+    override fun deleteItem(itemId: Int): Boolean = dataSource.deleteItem(itemId)
+
+
+    override fun addBook(book: Book) {
+        dataSource.addItem(book)
+    }
+
+    override fun addNewspaper(newspaper: Newspaper) {
+        dataSource.addItem(newspaper)
+    }
+
+    override fun addDisk(disk: Disk) {
+        dataSource.addItem(disk)
+    }
+
+    override fun updateBook(book: Book) {
+        dataSource.updateItem(book)
+    }
+
+    override fun updateNewspaper(newspaper: Newspaper) {
+        dataSource.updateItem(newspaper)
+    }
+
+    override fun updateDisk(disk: Disk) {
+        dataSource.updateItem(disk)
     }
 }

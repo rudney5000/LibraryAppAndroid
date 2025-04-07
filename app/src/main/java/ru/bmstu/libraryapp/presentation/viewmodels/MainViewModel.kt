@@ -4,6 +4,8 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import ru.bmstu.libraryapp.domain.entities.LibraryItem
 import ru.bmstu.libraryapp.domain.repositories.LibraryRepository
 
@@ -13,7 +15,6 @@ class MainViewModel(private val repository: LibraryRepository) : ViewModel() {
     val libraryItems: LiveData<List<LibraryItem>> = _libraryItems
 
     private val _loading = MutableLiveData<Boolean>()
-    val loading: LiveData<Boolean> = _loading
 
     private val _error = MutableLiveData<String?>()
     val error: LiveData<String?> = _error
@@ -46,7 +47,7 @@ class MainViewModel(private val repository: LibraryRepository) : ViewModel() {
             if (success) {
                 _libraryItems.value = _libraryItems.value?.filter { it.id != itemId }
             } else {
-                _error.value = "Échec de la suppression de l'élément"
+                _error.value = "error deleting item"
             }
         } catch (e: Exception) {
             _error.value = e.message
@@ -55,13 +56,11 @@ class MainViewModel(private val repository: LibraryRepository) : ViewModel() {
         }
     }
 
-    class Factory(private val repository: LibraryRepository) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(MainViewModel::class.java)) {
-                return MainViewModel(repository) as T
+    companion object {
+        fun provideFactory(repository: LibraryRepository): ViewModelProvider.Factory = viewModelFactory {
+            initializer {
+                MainViewModel(repository)
             }
-            throw IllegalArgumentException("Unknown ViewModel class")
         }
     }
 }

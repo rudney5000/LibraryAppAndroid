@@ -24,7 +24,6 @@ class LibraryItemDetailViewModel(
     val saveSuccess: LiveData<Boolean> = _saveSuccess
 
     private val _loading = MutableLiveData<Boolean>()
-    val loading: LiveData<Boolean> = _loading
 
     private val _error = MutableLiveData<String?>()
     val error: LiveData<String?> = _error
@@ -42,7 +41,7 @@ class LibraryItemDetailViewModel(
                         is Book -> repository.addBook(updatedItem)
                         is Newspaper -> repository.addNewspaper(updatedItem)
                         is Disk -> repository.addDisk(updatedItem)
-                        else -> throw IllegalArgumentException("Type d'élément non pris en charge")
+                        else -> throw IllegalArgumentException("Type element not supported")
                     }
                 }
                 LibraryItemDetailActivity.Companion.DetailMode.EDIT -> {
@@ -50,7 +49,7 @@ class LibraryItemDetailViewModel(
                         is Book -> repository.updateBook(updatedItem)
                         is Newspaper -> repository.updateNewspaper(updatedItem)
                         is Disk -> repository.updateDisk(updatedItem)
-                        else -> throw IllegalArgumentException("Type d'élément non pris en charge")
+                        else -> throw IllegalArgumentException("Type element not supported")
                     }
                 }
                 else -> {}

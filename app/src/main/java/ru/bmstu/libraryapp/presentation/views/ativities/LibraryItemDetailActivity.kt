@@ -17,16 +17,16 @@ import ru.bmstu.libraryapp.databinding.ActivityLibraryItemDetailBinding
 import ru.bmstu.libraryapp.databinding.ItemDetailFieldBinding
 import ru.bmstu.libraryapp.domain.entities.*
 import ru.bmstu.libraryapp.domain.repositories.LibraryRepository
+import ru.bmstu.libraryapp.presentation.utils.getParcelableExtraCompat
 import ru.bmstu.libraryapp.presentation.viewmodels.LibraryItemDetailViewModel
 
 class LibraryItemDetailActivity: ComponentActivity() {
     private lateinit var binding: ActivityLibraryItemDetailBinding
-    private val repository: LibraryRepository = LibraryRepositoryImpl(InMemoryDataSource())
+    private val repository: LibraryRepository = LibraryRepositoryImpl(InMemoryDataSource.getInstance())
     private lateinit var currentMode: DetailMode
 
-    @get:RequiresApi(Build.VERSION_CODES.TIRAMISU)
     private val viewModel: LibraryItemDetailViewModel by viewModels {
-        val item = intent.getParcelableExtra<ParcelableLibraryItem>(EXTRA_ITEM)
+        val item = intent.getParcelableExtraCompat<ParcelableLibraryItem>(EXTRA_ITEM)
         val mode = DetailMode.valueOf(intent.getStringExtra(EXTRA_MODE) ?: DetailMode.VIEW.name)
         LibraryItemDetailViewModel.Factory(repository, item, mode)
     }
@@ -46,10 +46,6 @@ class LibraryItemDetailActivity: ComponentActivity() {
     private fun setupObservers() {
         viewModel.item.observe(this) { item ->
             item?.let { setupViews(it) }
-        }
-
-        viewModel.loading.observe(this) { isLoading ->
-//            binding.progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
         }
 
         viewModel.error.observe(this) { errorMessage ->
@@ -148,17 +144,42 @@ class LibraryItemDetailActivity: ComponentActivity() {
     }
 
     private fun addBookFields(book: Book) {
-        addField("author", "Author", book.author, currentMode != DetailMode.VIEW)
-        addField("pages", "Pages", book.pages.toString(), currentMode != DetailMode.VIEW)
+        addField(
+            getString(R.string.tag_author),
+            getString(R.string.field_author),
+            book.author,
+            currentMode != DetailMode.VIEW
+        )
+        addField(
+            getString(R.string.tag_pages),
+            getString(R.string.field_pages),
+            book.pages.toString(),
+            currentMode != DetailMode.VIEW
+        )
     }
 
     private fun addNewspaperFields(newspaper: Newspaper) {
-        addField("issue_number", "Issue Number", newspaper.issueNumber.toString(), currentMode != DetailMode.VIEW)
-        addField("month", "Month", newspaper.month.toString(), currentMode != DetailMode.VIEW)
+        addField(
+            getString(R.string.tag_issue_number),
+            getString(R.string.field_issue_number),
+            newspaper.issueNumber.toString(),
+            currentMode != DetailMode.VIEW
+        )
+        addField(
+            getString(R.string.tag_month),
+            getString(R.string.field_month),
+            newspaper.month.toString(),
+            currentMode != DetailMode.VIEW
+        )
     }
 
     private fun addDiskFields(disk: Disk) {
-        addField("disk_type", "Type", disk.type.toString(), currentMode != DetailMode.VIEW)
+        addField(
+            getString(R.string.tag_disk_type),
+            getString(R.string.field_disk_type),
+            disk.type.toString(),
+            currentMode != DetailMode.VIEW
+        )
     }
 
     private fun addField(tag: String, label: String, value: String, isEnabled: Boolean) {

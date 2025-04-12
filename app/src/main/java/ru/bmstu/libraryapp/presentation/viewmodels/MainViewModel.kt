@@ -23,6 +23,10 @@ class MainViewModel(private val repository: LibraryRepository) : ViewModel() {
         loadAllItems()
     }
 
+    fun refreshItems() {
+        loadAllItems()
+    }
+
     fun loadAllItems() {
         _loading.value = true
         try {

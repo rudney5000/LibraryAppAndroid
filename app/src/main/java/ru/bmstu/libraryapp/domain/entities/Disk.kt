@@ -12,7 +12,7 @@ data class Disk(
     override val title: String,
     override var isAvailable: Boolean,
     val type: DiskType
-) : BaseLibraryItem(id, title, isAvailable), ParcelableLibraryItem {
+) : BaseLibraryItem(id, title, isAvailable), DigitizableItem, ParcelableLibraryItem {
 
     /**
      * Получение подробной информации о диске.
@@ -39,4 +39,10 @@ data class Disk(
      * @return "Диск"
      */
     override fun getDisplayTypeName(): String = "Диск"
+
+    override fun digitize(): String {
+        return "Оцифрованный $type: $title"
+    }
+
+    override val isDigitizable: Boolean = true
 }

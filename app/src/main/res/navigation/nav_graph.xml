@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/libraryListFragment">
+
+    <fragment
+        android:id="@+id/libraryListFragment"
+        android:name="ru.bmstu.libraryapp.presentation.views.fragments.LibraryListFragment"
+        android:label="LibraryListFragment">
+        <action
+            android:id="@+id/action_list_to_detail"
+            app:destination="@id/libraryItemDetailFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/libraryItemDetailFragment"
+        android:name="ru.bmstu.libraryapp.presentation.views.fragments.LibraryItemDetailFragment"
+        android:label="LibraryItemDetailFragment">
+        <argument
+            android:name="item"
+            app:argType="ru.bmstu.libraryapp.domain.entities.ParcelableLibraryItem"
+            app:nullable="true" />
+        <argument
+            android:name="mode"
+            app:argType="string" />
+    </fragment>
+</navigation>

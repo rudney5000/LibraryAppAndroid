@@ -1,6 +1,7 @@
 package ru.bmstu.libraryapp.data.datasources
 import ru.bmstu.libraryapp.domain.entities.BaseLibraryItem
 import ru.bmstu.libraryapp.domain.entities.Book
+import ru.bmstu.libraryapp.domain.entities.DigitizableItem
 import ru.bmstu.libraryapp.domain.entities.Disk
 import ru.bmstu.libraryapp.domain.entities.DiskType
 import ru.bmstu.libraryapp.domain.entities.LibraryItem
@@ -60,6 +61,7 @@ class InMemoryDataSource private constructor() : LocalDataSource {
             is Disk -> disks.add(0, item.copy(id = newId))
             is BaseLibraryItem -> TODO()
             is ParcelableLibraryItem -> TODO()
+            is DigitizableItem -> TODO()
         }
         return true
     }
@@ -89,6 +91,7 @@ class InMemoryDataSource private constructor() : LocalDataSource {
             }
             is BaseLibraryItem -> TODO()
             is ParcelableLibraryItem -> TODO()
+            is DigitizableItem -> TODO()
         }
         return false
     }
@@ -100,6 +103,7 @@ class InMemoryDataSource private constructor() : LocalDataSource {
             is Disk -> 3000
             is BaseLibraryItem -> TODO()
             is ParcelableLibraryItem -> TODO()
+            is DigitizableItem -> TODO()
         }
         val existingIds = when (item) {
             is Book -> books.map { it.id }
@@ -107,6 +111,7 @@ class InMemoryDataSource private constructor() : LocalDataSource {
             is Disk -> disks.map { it.id }
             is BaseLibraryItem -> TODO()
             is ParcelableLibraryItem -> TODO()
+            is DigitizableItem -> TODO()
         }
         return if (existingIds.isEmpty()) prefix + 1
         else existingIds.maxOrNull()!! + 1

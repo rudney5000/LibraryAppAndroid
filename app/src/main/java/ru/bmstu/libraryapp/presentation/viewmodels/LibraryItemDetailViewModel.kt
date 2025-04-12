@@ -5,16 +5,16 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import ru.bmstu.libraryapp.domain.entities.Book
+import ru.bmstu.libraryapp.domain.entities.DetailMode
 import ru.bmstu.libraryapp.domain.entities.Disk
 import ru.bmstu.libraryapp.domain.entities.LibraryItem
 import ru.bmstu.libraryapp.domain.entities.Newspaper
 import ru.bmstu.libraryapp.domain.repositories.LibraryRepository
-import ru.bmstu.libraryapp.presentation.views.ativities.LibraryItemDetailActivity
 
 class LibraryItemDetailViewModel(
     private val repository: LibraryRepository,
     initialItem: LibraryItem?,
-    private val mode: LibraryItemDetailActivity.Companion.DetailMode
+    private val mode: DetailMode
 ) : ViewModel() {
 
     private val _item = MutableLiveData<LibraryItem?>()
@@ -36,7 +36,7 @@ class LibraryItemDetailViewModel(
         _loading.value = true
         try {
             when (mode) {
-                LibraryItemDetailActivity.Companion.DetailMode.CREATE -> {
+                DetailMode.CREATE -> {
                     when (updatedItem) {
                         is Book -> repository.addBook(updatedItem)
                         is Newspaper -> repository.addNewspaper(updatedItem)
@@ -44,7 +44,7 @@ class LibraryItemDetailViewModel(
                         else -> throw IllegalArgumentException("Type element not supported")
                     }
                 }
-                LibraryItemDetailActivity.Companion.DetailMode.EDIT -> {
+                DetailMode.EDIT -> {
                     when (updatedItem) {
                         is Book -> repository.updateBook(updatedItem)
                         is Newspaper -> repository.updateNewspaper(updatedItem)
@@ -64,22 +64,10 @@ class LibraryItemDetailViewModel(
         }
     }
 
-    fun updateAvailability(available: Boolean) {
-        _item.value?.let { currentItem ->
-            repository.updateItemAvailability(currentItem, available)
-            _item.value = when (currentItem) {
-                is Book -> currentItem.copy(isAvailable = available)
-                is Newspaper -> currentItem.copy(isAvailable = available)
-                is Disk -> currentItem.copy(isAvailable = available)
-                else -> currentItem
-            }
-        }
-    }
-
     class Factory(
         private val repository: LibraryRepository,
         private val initialItem: LibraryItem?,
-        private val mode: LibraryItemDetailActivity.Companion.DetailMode
+        private val mode: DetailMode
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {

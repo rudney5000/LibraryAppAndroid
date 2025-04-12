@@ -13,7 +13,7 @@ data class Book(
     override var isAvailable: Boolean,
     val pages: Int,
     val author: String
-) : BaseLibraryItem(id, title, isAvailable), ParcelableLibraryItem {
+) : BaseLibraryItem(id, title, isAvailable), DigitizableItem, ParcelableLibraryItem {
 
     /**
      * Получение подробной информации о книге.
@@ -40,4 +40,10 @@ data class Book(
      * @return "Книга"
      */
     override fun getDisplayTypeName(): String = "книга"
+
+    override val isDigitizable: Boolean = true
+
+    override fun digitize(): String {
+        return "Оцифрованная книга: $title (автор: $author, $pages страниц)"
+    }
 }

@@ -41,4 +41,10 @@ data class Newspaper(
      * @return "Газета"
      */
     override fun getDisplayTypeName(): String = "Газета"
+
+    override val isDigitizable: Boolean = false
+
+    override fun digitize(): String {
+        throw UnsupportedOperationException("Газеты нельзя оцифровать")
+    }
 }

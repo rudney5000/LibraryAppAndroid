@@ -2,19 +2,19 @@ package ru.bmstu.libraryapp.presentation.views.adapters
 
 import android.annotation.SuppressLint
 import androidx.recyclerview.widget.DiffUtil
-import ru.bmstu.libraryapp.domain.entities.ParcelableLibraryItem
+import ru.bmstu.libraryapp.domain.entities.LibraryItemType
 
-class LibraryItemDiffCallback: DiffUtil.ItemCallback<ParcelableLibraryItem>() {
+class LibraryItemDiffCallback : DiffUtil.ItemCallback<LibraryItemType>() {
 
-    override fun areItemsTheSame(oldItem: ParcelableLibraryItem, newItem: ParcelableLibraryItem): Boolean {
+    override fun areItemsTheSame(oldItem: LibraryItemType, newItem: LibraryItemType): Boolean {
         return oldItem.id == newItem.id
     }
 
     @SuppressLint("DiffUtilEquals")
-    override fun areContentsTheSame(oldItem: ParcelableLibraryItem, newItem: ParcelableLibraryItem) =
+    override fun areContentsTheSame(oldItem: LibraryItemType, newItem: LibraryItemType): Boolean =
         oldItem == newItem
 
-    override fun getChangePayload(oldItem: ParcelableLibraryItem, newItem: ParcelableLibraryItem): Any? {
+    override fun getChangePayload(oldItem: LibraryItemType, newItem: LibraryItemType): Any? {
         return when {
             oldItem.isAvailable != newItem.isAvailable ->
                 LibraryItemPayload.AvailabilityChanged(newItem.isAvailable)

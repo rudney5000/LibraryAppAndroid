@@ -1,5 +1,6 @@
 package ru.bmstu.libraryapp.domain.entities
 
+import android.os.Parcelable
 import kotlinx.parcelize.Parcelize
 
 /**
@@ -12,7 +13,7 @@ data class Disk(
     override val title: String,
     override var isAvailable: Boolean,
     val type: DiskType
-) : BaseLibraryItem(id, title, isAvailable), DigitizableItem, ParcelableLibraryItem {
+) : BaseLibraryItem(id, title, isAvailable), DigitizableItem, Parcelable {
 
     /**
      * Получение подробной информации о диске.
@@ -43,6 +44,4 @@ data class Disk(
     override fun digitize(): String {
         return "Оцифрованный $type: $title"
     }
-
-    override val isDigitizable: Boolean = true
 }

@@ -1,5 +1,6 @@
 package ru.bmstu.libraryapp.domain.entities
 
+import android.os.Parcelable
 import kotlinx.parcelize.Parcelize
 
 /**
@@ -13,7 +14,7 @@ data class Book(
     override var isAvailable: Boolean,
     val pages: Int,
     val author: String
-) : BaseLibraryItem(id, title, isAvailable), DigitizableItem, ParcelableLibraryItem {
+) : BaseLibraryItem(id, title, isAvailable), DigitizableItem, Parcelable {
 
     /**
      * Получение подробной информации о книге.
@@ -40,8 +41,6 @@ data class Book(
      * @return "Книга"
      */
     override fun getDisplayTypeName(): String = "книга"
-
-    override val isDigitizable: Boolean = true
 
     override fun digitize(): String {
         return "Оцифрованная книга: $title (автор: $author, $pages страниц)"

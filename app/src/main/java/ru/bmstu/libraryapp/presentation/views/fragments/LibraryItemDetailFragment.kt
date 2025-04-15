@@ -6,22 +6,24 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.Toast
-import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
-import ru.bmstu.libraryapp.LibraryApp
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import ru.bmstu.libraryapp.R
+import ru.bmstu.libraryapp.data.datasources.InMemoryDataSource
+import ru.bmstu.libraryapp.data.repositories.LibraryRepositoryImpl
 import ru.bmstu.libraryapp.databinding.ActivityLibraryItemDetailBinding
 import ru.bmstu.libraryapp.databinding.ItemDetailFieldBinding
 import ru.bmstu.libraryapp.domain.entities.*
 import ru.bmstu.libraryapp.domain.repositories.LibraryRepository
 import ru.bmstu.libraryapp.presentation.viewmodels.LibraryItemDetailViewModel
 
-class LibraryItemDetailFragment : Fragment() {
+class LibraryItemDetailFragment : BaseFragment() {
     private var _binding: ActivityLibraryItemDetailBinding? = null
+
     private val repository: LibraryRepository by lazy {
-        (requireActivity().application as LibraryApp).libraryRepository
+        LibraryRepositoryImpl(InMemoryDataSource.getInstance())
     }
     private val binding get() = _binding!!
     
@@ -31,7 +33,7 @@ class LibraryItemDetailFragment : Fragment() {
         LibraryItemDetailViewModel.Factory(
             repository = repository,
             initialItem = args.item,
-            mode = DetailMode.valueOf(args.mode)
+            mode = DetailMode.valueOf(args.mode.toString())
         )
     }
     
@@ -48,8 +50,59 @@ class LibraryItemDetailFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        setupBackPressHandler()
         setupViews()
         observeViewModel()
+    }
+
+    override fun handleBackPressed(): Boolean {
+        if (hasUnsavedChanges()) {
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.unsaved_changes_title)
+                .setMessage(R.string.unsaved_changes_message)
+                .setPositiveButton(R.string.discard) { _, _ ->
+                    findNavController().navigateUp()
+                }
+                .setNegativeButton(R.string.stay, null)
+                .setNeutralButton(R.string.save) { _, _ ->
+                    saveItem()
+                }
+                .show()
+            return true
+        }
+        return false
+    }
+
+    private fun showConfirmationDialog() {
+        MaterialAlertDialogBuilder(requireContext())
+            .setMessage("Voulez-vous vraiment quitter sans sauvegarder ?")
+            .setPositiveButton("Oui") { _, _ ->
+                findNavController().navigateUp()
+            }
+            .setNegativeButton("Non", null)
+            .show()
+    }
+
+    private fun hasUnsavedChanges(): Boolean {
+        val currentItem = args.item ?: return false
+
+        if (binding.titleInput.text.toString() != currentItem.title) return true
+        if (binding.availabilitySwitch.isChecked != currentItem.isAvailable) return true
+
+        when (currentItem) {
+            is LibraryItemType.Book -> {
+                if (specificFields[getString(R.string.tag_author)]?.text.toString() != currentItem.author) return true
+                if (specificFields[getString(R.string.tag_pages)]?.text.toString().toIntOrNull() != currentItem.pages) return true
+            }
+            is LibraryItemType.Newspaper -> {
+                if (specificFields[getString(R.string.tag_issue_number)]?.text.toString().toIntOrNull() != currentItem.issueNumber) return true
+                if (specificFields[getString(R.string.tag_month)]?.text.toString() != currentItem.month.name) return true
+            }
+            is LibraryItemType.Disk -> {
+                if (specificFields[getString(R.string.tag_disk_type)]?.text.toString() != currentItem.type.name) return true
+            }
+        }
+        return false
     }
 
     private fun setupViews() {
@@ -61,22 +114,20 @@ class LibraryItemDetailFragment : Fragment() {
             availabilitySwitch.isChecked = item.isAvailable
 
             iconView.setImageResource(when(item) {
-                is Book -> R.drawable.ic_book_24
-                is Newspaper -> R.drawable.ic_newspaper_24
-                is Disk -> R.drawable.ic_disk_24
-                else -> R.drawable.ic_book_24
+                is LibraryItemType.Book -> R.drawable.ic_book_24
+                is LibraryItemType.Newspaper -> R.drawable.ic_newspaper_24
+                is LibraryItemType.Disk -> R.drawable.ic_disk_24
             })
 
             specificFieldsContainer.removeAllViews()
 
             when (item) {
-                is Book -> addBookFields(item)
-                is Newspaper -> addNewspaperFields(item)
-                is Disk -> addDiskFields(item)
-                else -> {}
+                is LibraryItemType.Book -> addBookFields(item)
+                is LibraryItemType.Newspaper -> addNewspaperFields(item)
+                is LibraryItemType.Disk -> addDiskFields(item)
             }
 
-            when (DetailMode.valueOf(args.mode)) {
+            when (DetailMode.valueOf(args.mode.toString())) {
                 DetailMode.VIEW -> {
                     titleInput.isEnabled = false
                     availabilitySwitch.isEnabled = false
@@ -96,17 +147,17 @@ class LibraryItemDetailFragment : Fragment() {
         }
     }
 
-    private fun addBookFields(book: Book) {
+    private fun addBookFields(book: LibraryItemType.Book) {
         addSpecificField(getString(R.string.field_author), getString(R.string.tag_author), book.author)
         addSpecificField(getString(R.string.field_pages), getString(R.string.tag_pages), book.pages.toString())
     }
 
-    private fun addNewspaperFields(newspaper: Newspaper) {
+    private fun addNewspaperFields(newspaper: LibraryItemType.Newspaper) {
         addSpecificField(getString(R.string.field_issue_number), getString(R.string.tag_issue_number), newspaper.issueNumber.toString())
         addSpecificField(getString(R.string.field_month), getString(R.string.tag_month), newspaper.month.name)
     }
 
-    private fun addDiskFields(disk: Disk) {
+    private fun addDiskFields(disk: LibraryItemType.Disk) {
         addSpecificField(getString(R.string.field_disk_type), getString(R.string.tag_disk_type), disk.type.name)
     }
 
@@ -124,18 +175,18 @@ class LibraryItemDetailFragment : Fragment() {
 
     private fun saveItem() {
         val updatedItem = when (val originalItem = args.item) {
-            is Book -> createUpdatedBook(originalItem)
-            is Newspaper -> createUpdatedNewspaper(originalItem)
-            is Disk -> createUpdatedDisk(originalItem)
-            else -> throw IllegalArgumentException("Unknown item type")
+            is LibraryItemType.Book -> createUpdatedBook(originalItem)
+            is LibraryItemType.Newspaper -> createUpdatedNewspaper(originalItem)
+            is LibraryItemType.Disk -> createUpdatedDisk(originalItem)
+            null -> throw IllegalArgumentException("Item cannot be null")
         }
 
         viewModel.saveItem(updatedItem)
         findNavController().navigateUp()
     }
 
-    private fun createUpdatedBook(originalItem: Book): Book {
-        return Book(
+    private fun createUpdatedBook(originalItem: LibraryItemType.Book): LibraryItemType.Book {
+        return LibraryItemType.Book(
             id = originalItem.id,
             title = binding.titleInput.text.toString(),
             isAvailable = binding.availabilitySwitch.isChecked,
@@ -144,8 +195,8 @@ class LibraryItemDetailFragment : Fragment() {
         )
     }
 
-    private fun createUpdatedNewspaper(originalItem: Newspaper): Newspaper {
-        return Newspaper(
+    private fun createUpdatedNewspaper(originalItem: LibraryItemType.Newspaper): LibraryItemType.Newspaper {
+        return LibraryItemType.Newspaper(
             id = originalItem.id,
             title = binding.titleInput.text.toString(),
             isAvailable = binding.availabilitySwitch.isChecked,
@@ -154,8 +205,8 @@ class LibraryItemDetailFragment : Fragment() {
         )
     }
 
-    private fun createUpdatedDisk(originalItem: Disk): Disk {
-        return Disk(
+    private fun createUpdatedDisk(originalItem: LibraryItemType.Disk): LibraryItemType.Disk {
+        return LibraryItemType.Disk(
             id = originalItem.id,
             title = binding.titleInput.text.toString(),
             isAvailable = binding.availabilitySwitch.isChecked,

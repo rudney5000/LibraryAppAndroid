@@ -1,5 +1,6 @@
 package ru.bmstu.libraryapp.domain.entities
 
+import android.os.Parcelable
 import kotlinx.parcelize.Parcelize
 import java.util.*
 
@@ -14,7 +15,7 @@ data class Newspaper(
     override var isAvailable: Boolean,
     val issueNumber: Int,
     val month: Month
-) : BaseLibraryItem(id, title, isAvailable), ParcelableLibraryItem {
+) : BaseLibraryItem(id, title, isAvailable), Parcelable {
 
     /**
      * Получение подробной информации о газете.
@@ -41,10 +42,4 @@ data class Newspaper(
      * @return "Газета"
      */
     override fun getDisplayTypeName(): String = "Газета"
-
-    override val isDigitizable: Boolean = false
-
-    override fun digitize(): String {
-        throw UnsupportedOperationException("Газеты нельзя оцифровать")
-    }
 }

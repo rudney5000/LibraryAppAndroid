@@ -1,11 +1,10 @@
 package ru.bmstu.libraryapp.presentation.views.fragments
 
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Toast
-import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.ItemTouchHelper
@@ -13,26 +12,27 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import ru.bmstu.libraryapp.R
 import ru.bmstu.libraryapp.databinding.FragmentLibraryListBinding
-import ru.bmstu.libraryapp.domain.entities.Book
-import ru.bmstu.libraryapp.domain.entities.Disk
 import ru.bmstu.libraryapp.domain.entities.DiskType
 import ru.bmstu.libraryapp.domain.entities.Month
-import ru.bmstu.libraryapp.domain.entities.Newspaper
 import ru.bmstu.libraryapp.domain.repositories.LibraryRepository
 import ru.bmstu.libraryapp.presentation.viewmodels.MainViewModel
 import ru.bmstu.libraryapp.presentation.views.adapters.LibraryItemAdapter
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import ru.bmstu.libraryapp.LibraryApp
-import ru.bmstu.libraryapp.presentation.utils.toParcelable
+import ru.bmstu.libraryapp.data.datasources.InMemoryDataSource
+import ru.bmstu.libraryapp.data.repositories.LibraryRepositoryImpl
+import ru.bmstu.libraryapp.domain.entities.DetailMode
+import ru.bmstu.libraryapp.domain.entities.LibraryItemType
 
-class LibraryListFragment : Fragment() {
+class LibraryListFragment : BaseFragment() {
     private var _binding: FragmentLibraryListBinding? = null
     private val binding get() = _binding!!
     
     private lateinit var adapter: LibraryItemAdapter
     private val repository: LibraryRepository by lazy {
-        (requireActivity().application as LibraryApp).libraryRepository
+        Log.d("LibraryListFragment", "Initializing repository")
+        LibraryRepositoryImpl(InMemoryDataSource.getInstance())
     }
+
     private val viewModel: MainViewModel by viewModels {
         MainViewModel.provideFactory(repository)
     }
@@ -48,6 +48,7 @@ class LibraryListFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        setupBackPressHandler()
         findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<Boolean>("shouldRefresh")
             ?.observe(viewLifecycleOwner) { shouldRefresh ->
                 if (shouldRefresh) {
@@ -62,23 +63,21 @@ class LibraryListFragment : Fragment() {
         observeViewModel()
     }
 
+    override fun handleBackPressed(): Boolean {
+        return false
+    }
+
+
     private fun observeViewModel() {
         viewModel.libraryItems.observe(viewLifecycleOwner) { items ->
-            val parcelableItems = items.map { it.toParcelable() }
-            adapter.submitList(parcelableItems)
-        }
-
-        viewModel.error.observe(viewLifecycleOwner) { errorMessage ->
-            errorMessage?.let {
-                Toast.makeText(requireContext(), it, Toast.LENGTH_LONG).show()
-            }
+            adapter.submitList(items)
         }
     }
 
     private fun setupRecyclerView() {
         adapter = LibraryItemAdapter { item ->
             val action = LibraryListFragmentDirections
-                .actionListToDetail(item, "VIEW")
+                .actionListToDetail(item, DetailMode.CREATE)
             findNavController().navigate(action)
         }
         
@@ -105,17 +104,20 @@ class LibraryListFragment : Fragment() {
             .setTitle(getString(R.string.dialog_choose_item_type))
             .setItems(types) { _, which ->
                 val newItem = when (which) {
-                    0 -> Book(0, "", true, 0, "")
-                    1 -> Newspaper(0, "", true, 0, Month.JANUARY)
-                    2 -> Disk(0, "", true, DiskType.CD)
+                    0 -> LibraryItemType.Book(0, "", true, 0, "")
+                    1 -> LibraryItemType.Newspaper(0, "", true, 0, Month.JANUARY)
+                    2 -> LibraryItemType.Disk(0, "", true, DiskType.CD)
                     else -> throw IllegalArgumentException("Unknown type")
                 }
-                
-                val action = LibraryListFragmentDirections
-                    .actionListToDetail(newItem, "CREATE")
-                findNavController().navigate(action)
+
+                navigateToDetail(newItem, DetailMode.CREATE)
             }
             .show()
+    }
+
+    private fun navigateToDetail(item: LibraryItemType, mode: DetailMode = DetailMode.VIEW) {
+        val action = LibraryListFragmentDirections.actionListToDetail(item, mode)
+        findNavController().navigate(action)
     }
 
     private fun setupSwipeToDelete() {

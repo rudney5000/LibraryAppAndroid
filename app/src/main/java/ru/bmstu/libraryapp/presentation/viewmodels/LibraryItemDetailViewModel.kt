@@ -4,11 +4,9 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import ru.bmstu.libraryapp.domain.entities.Book
 import ru.bmstu.libraryapp.domain.entities.DetailMode
-import ru.bmstu.libraryapp.domain.entities.Disk
 import ru.bmstu.libraryapp.domain.entities.LibraryItem
-import ru.bmstu.libraryapp.domain.entities.Newspaper
+import ru.bmstu.libraryapp.domain.entities.LibraryItemType
 import ru.bmstu.libraryapp.domain.repositories.LibraryRepository
 
 class LibraryItemDetailViewModel(
@@ -38,17 +36,17 @@ class LibraryItemDetailViewModel(
             when (mode) {
                 DetailMode.CREATE -> {
                     when (updatedItem) {
-                        is Book -> repository.addBook(updatedItem)
-                        is Newspaper -> repository.addNewspaper(updatedItem)
-                        is Disk -> repository.addDisk(updatedItem)
+                        is LibraryItemType.Book -> repository.addBook(updatedItem)
+                        is LibraryItemType.Newspaper -> repository.addNewspaper(updatedItem)
+                        is LibraryItemType.Disk -> repository.addDisk(updatedItem)
                         else -> throw IllegalArgumentException("Type element not supported")
                     }
                 }
                 DetailMode.EDIT -> {
                     when (updatedItem) {
-                        is Book -> repository.updateBook(updatedItem)
-                        is Newspaper -> repository.updateNewspaper(updatedItem)
-                        is Disk -> repository.updateDisk(updatedItem)
+                        is LibraryItemType.Book -> repository.updateBook(updatedItem)
+                        is LibraryItemType.Newspaper -> repository.updateNewspaper(updatedItem)
+                        is LibraryItemType.Disk -> repository.updateDisk(updatedItem)
                         else -> throw IllegalArgumentException("Type element not supported")
                     }
                 }

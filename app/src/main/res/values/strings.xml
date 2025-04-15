@@ -23,4 +23,10 @@
     <string name="tag_issue_number" translatable="false">issue_number</string>
     <string name="tag_month" translatable="false">month</string>
     <string name="tag_disk_type" translatable="false">disk_type</string>
+
+    <string name="unsaved_changes_title">Несохраненные изменения</string>
+    <string name="unsaved_changes_message">Вы хотите отменить свои изменения?</string>
+    <string name="discard">Отменить</string>
+    <string name="cancel">Отмена</string>
+    <string name="stay">Остаться</string>
 </resources>

@@ -1,12 +1,10 @@
 package ru.bmstu.libraryapp.presentation.views.fragments
 
 import android.os.Bundle
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.viewModels
-import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -29,7 +27,6 @@ class LibraryListFragment : BaseFragment() {
     
     private lateinit var adapter: LibraryItemAdapter
     private val repository: LibraryRepository by lazy {
-        Log.d("LibraryListFragment", "Initializing repository")
         LibraryRepositoryImpl(InMemoryDataSource.getInstance())
     }
 
@@ -48,14 +45,6 @@ class LibraryListFragment : BaseFragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        setupBackPressHandler()
-        findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<Boolean>("shouldRefresh")
-            ?.observe(viewLifecycleOwner) { shouldRefresh ->
-                if (shouldRefresh) {
-                    viewModel.refreshItems()
-                    findNavController().currentBackStackEntry?.savedStateHandle?.remove<Boolean>("shouldRefresh")
-                }
-            }
 
         setupRecyclerView()
         setupSwipeToDelete()
@@ -76,11 +65,9 @@ class LibraryListFragment : BaseFragment() {
 
     private fun setupRecyclerView() {
         adapter = LibraryItemAdapter { item ->
-            val action = LibraryListFragmentDirections
-                .actionListToDetail(item, DetailMode.CREATE)
-            findNavController().navigate(action)
+            openDetailFragment(item, DetailMode.VIEW)
         }
-        
+
         binding.recyclerView.apply {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = this@LibraryListFragment.adapter
@@ -91,6 +78,15 @@ class LibraryListFragment : BaseFragment() {
         binding.addFab.setOnClickListener {
             showItemTypeDialog()
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        refreshList()
+    }
+
+    fun refreshList() {
+        viewModel.refreshItems()
     }
 
     private fun showItemTypeDialog() {
@@ -116,8 +112,7 @@ class LibraryListFragment : BaseFragment() {
     }
 
     private fun navigateToDetail(item: LibraryItemType, mode: DetailMode = DetailMode.VIEW) {
-        val action = LibraryListFragmentDirections.actionListToDetail(item, mode)
-        findNavController().navigate(action)
+        openDetailFragment(item, mode)
     }
 
     private fun setupSwipeToDelete() {
@@ -136,6 +131,29 @@ class LibraryListFragment : BaseFragment() {
             }
         })
         itemTouchHelper.attachToRecyclerView(binding.recyclerView)
+    }
+
+    private fun openDetailFragment(item: LibraryItemType, mode: DetailMode) {
+        val detailFragment = LibraryItemDetailFragment.newInstance(item, mode)
+
+        val detailContainer = activity?.findViewById<View>(R.id.detail_container)
+
+        if (detailContainer != null) {
+            parentFragmentManager.beginTransaction()
+                .replace(R.id.detail_container, detailFragment)
+                .commit()
+        } else {
+            parentFragmentManager.beginTransaction()
+                .setCustomAnimations(
+                    R.anim.slide_in_right,
+                    R.anim.slide_out_left,
+                    R.anim.slide_in_left,
+                    R.anim.slide_out_right
+                )
+                .replace(R.id.fragment_container, detailFragment)
+                .addToBackStack(null)
+                .commit()
+        }
     }
 
     override fun onDestroyView() {

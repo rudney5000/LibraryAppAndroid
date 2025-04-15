@@ -1,14 +1,8 @@
 package ru.bmstu.libraryapp.data.datasources
-import android.util.Log
-import ru.bmstu.libraryapp.domain.entities.BaseLibraryItem
-import ru.bmstu.libraryapp.domain.entities.Book
-import ru.bmstu.libraryapp.domain.entities.DigitizableItem
-import ru.bmstu.libraryapp.domain.entities.Disk
 import ru.bmstu.libraryapp.domain.entities.DiskType
 import ru.bmstu.libraryapp.domain.entities.LibraryItem
 import ru.bmstu.libraryapp.domain.entities.LibraryItemType
 import ru.bmstu.libraryapp.domain.entities.Month
-import ru.bmstu.libraryapp.domain.entities.Newspaper
 
 /**
  * Реализация источника данных в памяти.

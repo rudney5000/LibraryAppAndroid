@@ -17,7 +17,6 @@ class MainViewModel(private val repository: LibraryRepository) : ViewModel() {
     private val _loading = MutableLiveData<Boolean>()
 
     private val _error = MutableLiveData<String?>()
-    val error: LiveData<String?> = _error
 
     init {
         loadAllItems()

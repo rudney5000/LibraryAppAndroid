@@ -7,8 +7,6 @@ import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.Toast
 import androidx.fragment.app.viewModels
-import androidx.navigation.fragment.findNavController
-import androidx.navigation.fragment.navArgs
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import ru.bmstu.libraryapp.R
 import ru.bmstu.libraryapp.data.datasources.InMemoryDataSource
@@ -27,13 +25,14 @@ class LibraryItemDetailFragment : BaseFragment() {
     }
     private val binding get() = _binding!!
     
-    private val args: LibraryItemDetailFragmentArgs by navArgs()
+    private var item: LibraryItemType? = null
+    private var mode: DetailMode = DetailMode.VIEW
 
     private val viewModel: LibraryItemDetailViewModel by viewModels {
         LibraryItemDetailViewModel.Factory(
             repository = repository,
-            initialItem = args.item,
-            mode = DetailMode.valueOf(args.mode.toString())
+            initialItem = item,
+            mode = mode
         )
     }
     
@@ -61,7 +60,7 @@ class LibraryItemDetailFragment : BaseFragment() {
                 .setTitle(R.string.unsaved_changes_title)
                 .setMessage(R.string.unsaved_changes_message)
                 .setPositiveButton(R.string.discard) { _, _ ->
-                    findNavController().navigateUp()
+                    navigateBack()
                 }
                 .setNegativeButton(R.string.stay, null)
                 .setNeutralButton(R.string.save) { _, _ ->
@@ -73,18 +72,8 @@ class LibraryItemDetailFragment : BaseFragment() {
         return false
     }
 
-    private fun showConfirmationDialog() {
-        MaterialAlertDialogBuilder(requireContext())
-            .setMessage("Voulez-vous vraiment quitter sans sauvegarder ?")
-            .setPositiveButton("Oui") { _, _ ->
-                findNavController().navigateUp()
-            }
-            .setNegativeButton("Non", null)
-            .show()
-    }
-
     private fun hasUnsavedChanges(): Boolean {
-        val currentItem = args.item ?: return false
+        val currentItem = item ?: return false
 
         if (binding.titleInput.text.toString() != currentItem.title) return true
         if (binding.availabilitySwitch.isChecked != currentItem.isAvailable) return true
@@ -107,13 +96,13 @@ class LibraryItemDetailFragment : BaseFragment() {
 
     private fun setupViews() {
         binding.apply {
-            val item = args.item ?: return
+            val currentItem = item ?: return
 
-            titleInput.setText(item.title)
-            idInput.setText(item.id.toString())
-            availabilitySwitch.isChecked = item.isAvailable
+            titleInput.setText(currentItem.title)
+            idInput.setText(currentItem.id.toString())
+            availabilitySwitch.isChecked = currentItem.isAvailable
 
-            iconView.setImageResource(when(item) {
+            iconView.setImageResource(when(currentItem) {
                 is LibraryItemType.Book -> R.drawable.ic_book_24
                 is LibraryItemType.Newspaper -> R.drawable.ic_newspaper_24
                 is LibraryItemType.Disk -> R.drawable.ic_disk_24
@@ -121,13 +110,12 @@ class LibraryItemDetailFragment : BaseFragment() {
 
             specificFieldsContainer.removeAllViews()
 
-            when (item) {
-                is LibraryItemType.Book -> addBookFields(item)
-                is LibraryItemType.Newspaper -> addNewspaperFields(item)
-                is LibraryItemType.Disk -> addDiskFields(item)
+            when (currentItem) {
+                is LibraryItemType.Book -> addBookFields(currentItem)
+                is LibraryItemType.Newspaper -> addNewspaperFields(currentItem)
+                is LibraryItemType.Disk -> addDiskFields(currentItem)
             }
-
-            when (DetailMode.valueOf(args.mode.toString())) {
+            when (mode) {
                 DetailMode.VIEW -> {
                     titleInput.isEnabled = false
                     availabilitySwitch.isEnabled = false
@@ -174,7 +162,7 @@ class LibraryItemDetailFragment : BaseFragment() {
     }
 
     private fun saveItem() {
-        val updatedItem = when (val originalItem = args.item) {
+        val updatedItem = when (val originalItem = item) {
             is LibraryItemType.Book -> createUpdatedBook(originalItem)
             is LibraryItemType.Newspaper -> createUpdatedNewspaper(originalItem)
             is LibraryItemType.Disk -> createUpdatedDisk(originalItem)
@@ -182,7 +170,12 @@ class LibraryItemDetailFragment : BaseFragment() {
         }
 
         viewModel.saveItem(updatedItem)
-        findNavController().navigateUp()
+        val libraryListFragment = parentFragmentManager
+            .fragments
+            .firstOrNull { it is LibraryListFragment } as? LibraryListFragment
+
+        libraryListFragment?.refreshList()
+        navigateBack()
     }
 
     private fun createUpdatedBook(originalItem: LibraryItemType.Book): LibraryItemType.Book {
@@ -214,6 +207,18 @@ class LibraryItemDetailFragment : BaseFragment() {
         )
     }
 
+    private fun navigateBack() {
+        activity?.supportFragmentManager?.popBackStack()
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        arguments?.let {
+            item = it.getParcelable(ARG_ITEM)
+            mode = DetailMode.valueOf(it.getString(ARG_MODE, DetailMode.VIEW.name))
+        }
+    }
+
     private fun observeViewModel() {
         viewModel.item.observe(viewLifecycleOwner) { item ->
             item?.let { setupViews() }
@@ -227,13 +232,28 @@ class LibraryItemDetailFragment : BaseFragment() {
 
         viewModel.saveSuccess.observe(viewLifecycleOwner) { success ->
             if (success) {
-                findNavController().previousBackStackEntry?.savedStateHandle?.set(
-                    "shouldRefresh",
-                    true
-                )
-                findNavController().navigateUp()
+                (activity as? OnItemSavedListener)?.onItemSaved()
+                navigateBack()
             }
         }
+    }
+
+    companion object {
+        private const val ARG_ITEM = "arg_item"
+        private const val ARG_MODE = "arg_mode"
+
+        fun newInstance(item: LibraryItemType, mode: DetailMode): LibraryItemDetailFragment {
+            return LibraryItemDetailFragment().apply {
+                arguments = Bundle().apply {
+                    putParcelable(ARG_ITEM, item)
+                    putString(ARG_MODE, mode.name)
+                }
+            }
+        }
+    }
+
+    interface OnItemSavedListener {
+        fun onItemSaved()
     }
 
     override fun onDestroyView() {

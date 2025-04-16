@@ -38,8 +38,4 @@ package ru.bmstu.libraryapp.domain.entities
      * @return Строка с названием типа элемента
      */
     abstract override fun getDisplayTypeName(): String
-
-    override fun digitize(): String {
-        throw UnsupportedOperationException("Этот тип элемента нельзя оцифровать")
-    }
 }

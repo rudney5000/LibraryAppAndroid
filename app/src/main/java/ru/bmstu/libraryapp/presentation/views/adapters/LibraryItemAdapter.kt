@@ -4,11 +4,11 @@ import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.ListAdapter
 import ru.bmstu.libraryapp.databinding.ItemLibraryBinding
-import ru.bmstu.libraryapp.domain.entities.LibraryItem
+import ru.bmstu.libraryapp.domain.entities.LibraryItemType
 
 class LibraryItemAdapter(
-    private val onItemClick: (LibraryItem) -> Unit
-) : ListAdapter<LibraryItem, LibraryItemViewHolder>(LibraryItemDiffCallback()) {
+    private val onItemClick: (LibraryItemType) -> Unit
+) : ListAdapter<LibraryItemType, LibraryItemViewHolder>(LibraryItemDiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): LibraryItemViewHolder {
         val binding = ItemLibraryBinding.inflate(
@@ -21,11 +21,7 @@ class LibraryItemAdapter(
         holder.bind(getItem(position))
     }
 
-    override fun onBindViewHolder(
-        holder: LibraryItemViewHolder,
-        position: Int,
-        payloads: List<Any>
-    ) {
+    override fun onBindViewHolder(holder: LibraryItemViewHolder, position: Int, payloads: List<Any>) {
         if (payloads.isEmpty()) {
             super.onBindViewHolder(holder, position, payloads)
             return

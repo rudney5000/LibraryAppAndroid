@@ -24,6 +24,7 @@ import ru.bmstu.libraryapp.domain.entities.LibraryItemType
 class LibraryListFragment : BaseFragment() {
     private var _binding: FragmentLibraryListBinding? = null
     private val binding get() = _binding!!
+    private var lastCreatedItemId: Int? = null
     
     private lateinit var adapter: LibraryItemAdapter
     private val repository: LibraryRepository by lazy {
@@ -82,11 +83,23 @@ class LibraryListFragment : BaseFragment() {
 
     override fun onResume() {
         super.onResume()
-        refreshList()
+        lastCreatedItemId?.let { scrollToItem(it) }
     }
 
     fun refreshList() {
         viewModel.refreshItems()
+    }
+
+    fun scrollToItem(itemId: Int) {
+        lastCreatedItemId = itemId
+        val position = (binding.recyclerView.adapter as? LibraryItemAdapter)
+            ?.currentList
+            ?.indexOfFirst { it.id == itemId }
+            ?: return
+
+        binding.recyclerView.post {
+            binding.recyclerView.smoothScrollToPosition(position)
+        }
     }
 
     private fun showItemTypeDialog() {

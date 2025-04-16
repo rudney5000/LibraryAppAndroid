@@ -1,5 +1,6 @@
 package ru.bmstu.libraryapp.presentation.views.fragments
 
+import android.content.res.Configuration
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -27,6 +28,7 @@ class LibraryItemDetailFragment : BaseFragment() {
     
     private var item: LibraryItemType? = null
     private var mode: DetailMode = DetailMode.VIEW
+    private var scrollPosition = 0
 
     private val viewModel: LibraryItemDetailViewModel by viewModels {
         LibraryItemDetailViewModel.Factory(
@@ -174,7 +176,11 @@ class LibraryItemDetailFragment : BaseFragment() {
             .fragments
             .firstOrNull { it is LibraryListFragment } as? LibraryListFragment
 
-        libraryListFragment?.refreshList()
+//        libraryListFragment?.refreshList()
+        libraryListFragment?.apply {
+            refreshList()
+            scrollToItem(updatedItem.id)
+        }
         navigateBack()
     }
 
@@ -207,12 +213,28 @@ class LibraryItemDetailFragment : BaseFragment() {
         )
     }
 
+//    private fun navigateBack() {
+//        activity?.supportFragmentManager?.popBackStack()
+//    }
+
     private fun navigateBack() {
-        activity?.supportFragmentManager?.popBackStack()
+        val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+        if (isLandscape) {
+            parentFragmentManager.beginTransaction()
+                .remove(this)
+                .commit()
+
+            (parentFragmentManager.fragments.firstOrNull { it is LibraryListFragment } as? LibraryListFragment)
+                ?.refreshList()
+        } else {
+            parentFragmentManager.popBackStack()
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        retainInstance = true
         arguments?.let {
             item = it.getParcelable(ARG_ITEM)
             mode = DetailMode.valueOf(it.getString(ARG_MODE, DetailMode.VIEW.name))
@@ -238,9 +260,22 @@ class LibraryItemDetailFragment : BaseFragment() {
         }
     }
 
+    override fun onPause() {
+        super.onPause()
+        scrollPosition = binding.root.scrollY
+    }
+
+    override fun onResume() {
+        super.onResume()
+        binding.root.post {
+            binding.root.scrollTo(0, scrollPosition)
+        }
+    }
+
     companion object {
         private const val ARG_ITEM = "arg_item"
         private const val ARG_MODE = "arg_mode"
+        private const val ARG_SCROLL_POSITION = "arg_scroll_position"
 
         fun newInstance(item: LibraryItemType, mode: DetailMode): LibraryItemDetailFragment {
             return LibraryItemDetailFragment().apply {

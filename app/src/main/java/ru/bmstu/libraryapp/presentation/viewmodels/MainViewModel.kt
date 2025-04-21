@@ -6,30 +6,56 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import ru.bmstu.libraryapp.domain.entities.LibraryItem
+import ru.bmstu.libraryapp.domain.entities.LibraryItemType
 import ru.bmstu.libraryapp.domain.repositories.LibraryRepository
 
 class MainViewModel(private val repository: LibraryRepository) : ViewModel() {
 
-    private val _libraryItems = MutableLiveData<List<LibraryItem>>()
-    val libraryItems: LiveData<List<LibraryItem>> = _libraryItems
+    private val _libraryItems = MutableLiveData<List<LibraryItemType>>()
+    val libraryItems: LiveData<List<LibraryItemType>> = _libraryItems
 
     private val _loading = MutableLiveData<Boolean>()
 
     private val _error = MutableLiveData<String?>()
-    val error: LiveData<String?> = _error
 
     init {
+        loadAllItems()
+    }
+
+    fun refreshItems() {
         loadAllItems()
     }
 
     fun loadAllItems() {
         _loading.value = true
         try {
-            val items = mutableListOf<LibraryItem>().apply {
-                addAll(repository.getAllBooks())
-                addAll(repository.getAllNewspapers())
-                addAll(repository.getAllDisks())
+            val items = mutableListOf<LibraryItemType>().apply {
+                addAll(repository.getAllBooks().map { book ->
+                    LibraryItemType.Book(
+                        id = book.id,
+                        title = book.title,
+                        isAvailable = book.isAvailable,
+                        author = book.author,
+                        pages = book.pages
+                    )
+                })
+                addAll(repository.getAllNewspapers().map { newspaper ->
+                    LibraryItemType.Newspaper(
+                        id = newspaper.id,
+                        title = newspaper.title,
+                        isAvailable = newspaper.isAvailable,
+                        issueNumber = newspaper.issueNumber,
+                        month = newspaper.month
+                    )
+                })
+                addAll(repository.getAllDisks().map { disk ->
+                    LibraryItemType.Disk(
+                        id = disk.id,
+                        title = disk.title,
+                        isAvailable = disk.isAvailable,
+                        type = disk.type
+                    )
+                })
             }
             _libraryItems.value = items
             _error.value = null

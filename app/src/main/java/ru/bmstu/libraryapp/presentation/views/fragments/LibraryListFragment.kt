@@ -95,10 +95,12 @@ class LibraryListFragment : BaseFragment() {
         val position = (binding.recyclerView.adapter as? LibraryItemAdapter)
             ?.currentList
             ?.indexOfFirst { it.id == itemId }
-            ?: return
+            ?: -1
 
-        binding.recyclerView.post {
-            binding.recyclerView.smoothScrollToPosition(position)
+        if (position >= 0) {
+            binding.recyclerView.post {
+                binding.recyclerView.smoothScrollToPosition(position)
+            }
         }
     }
 

@@ -225,7 +225,7 @@ class LibraryItemDetailFragment : BaseFragment() {
                 .remove(this)
                 .commit()
 
-            (parentFragmentManager.fragments.firstOrNull { it is LibraryListFragment } as? LibraryListFragment)
+            (parentFragmentManager.findFragmentByTag("LibraryListFragment") as? LibraryListFragment)
                 ?.refreshList()
         } else {
             parentFragmentManager.popBackStack()
@@ -234,7 +234,6 @@ class LibraryItemDetailFragment : BaseFragment() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        retainInstance = true
         arguments?.let {
             item = it.getParcelable(ARG_ITEM)
             mode = DetailMode.valueOf(it.getString(ARG_MODE, DetailMode.VIEW.name))

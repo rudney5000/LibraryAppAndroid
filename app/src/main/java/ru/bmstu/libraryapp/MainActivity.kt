@@ -10,7 +10,7 @@ class MainActivity : AppCompatActivity(), LibraryItemDetailFragment.OnItemSavedL
     private lateinit var binding: ActivityMainBinding
 
     private val isDualPane: Boolean
-        get() = true
+        get() = binding.detailContainer != null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -19,7 +19,7 @@ class MainActivity : AppCompatActivity(), LibraryItemDetailFragment.OnItemSavedL
         if (savedInstanceState == null) {
             supportFragmentManager.beginTransaction()
                 .replace(
-                    if (isDualPane) R.id.fragment_container else R.id.fragment_container,
+                    if (isDualPane) R.id.detail_container else R.id.fragment_container,
                     LibraryListFragment(),
                     "LibraryListFragment"
                 )

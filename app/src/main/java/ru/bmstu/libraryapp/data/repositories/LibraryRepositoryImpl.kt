@@ -5,6 +5,10 @@ import ru.bmstu.libraryapp.domain.entities.LibraryItem
 import ru.bmstu.libraryapp.domain.entities.LibraryItemType
 import ru.bmstu.libraryapp.domain.repositories.LibraryRepository
 import ru.bmstu.libraryapp.presentation.utils.filterByType
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import kotlin.random.Random
 
 /**
  * Реализация репозитория библиотеки.
@@ -12,20 +16,40 @@ import ru.bmstu.libraryapp.presentation.utils.filterByType
  * @param dataSource Источник данных
  */
 class LibraryRepositoryImpl(private val dataSource: LocalDataSource) : LibraryRepository {
+
     /**
      * Получение всех книг.
      * @return Список всех книг
      */
-    override fun getAllBooks(): List<LibraryItemType.Book> {
-        return dataSource.getAllItems().filterByType<LibraryItemType.Book>()
+    override suspend fun getAllBooks(): Result<List<LibraryItemType.Book>> = withContext(Dispatchers.IO) {
+        try {
+            simulateDelay()
+            if (shouldThrowError()) {
+                Result.failure(Exception("Erreur lors du chargement des livres"))
+            } else {
+                Result.success(dataSource.getAllItems().filterByType())
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     /**
      * Получение всех газет.
      * @return Список всех газет
      */
-    override fun getAllNewspapers(): List<LibraryItemType.Newspaper> {
-        return dataSource.getAllItems().filterByType<LibraryItemType.Newspaper>()
+
+    override suspend fun getAllNewspapers(): Result<List<LibraryItemType.Newspaper>> = withContext(Dispatchers.IO) {
+        try {
+            simulateDelay()
+            if (shouldThrowError()) {
+                Result.failure(Exception("Erreur lors du chargement des journaux"))
+            } else {
+                Result.success(dataSource.getAllItems().filterByType())
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
 
@@ -33,8 +57,18 @@ class LibraryRepositoryImpl(private val dataSource: LocalDataSource) : LibraryRe
      * Получение всех дисков.
      * @return Список всех дисков
      */
-    override fun getAllDisks(): List<LibraryItemType.Disk> {
-        return dataSource.getAllItems().filterByType<LibraryItemType.Disk>()
+
+    override suspend fun getAllDisks(): Result<List<LibraryItemType.Disk>> = withContext(Dispatchers.IO) {
+        try {
+            simulateDelay()
+            if (shouldThrowError()) {
+                Result.failure(Exception("Erreur lors du chargement des disques"))
+            } else {
+                Result.success(dataSource.getAllItems().filterByType())
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     /**
@@ -42,36 +76,129 @@ class LibraryRepositoryImpl(private val dataSource: LocalDataSource) : LibraryRe
      * @param item Элемент для обновления
      * @param isAvailable Новое состояние доступности
      */
-    override fun updateItemAvailability(item: LibraryItem, isAvailable: Boolean) {
-        if (item is BaseLibraryItem) {
-            item.changeAvailability(isAvailable)
+    override suspend fun updateItemAvailability(item: LibraryItem, isAvailable: Boolean): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            try {
+                simulateDelay()
+                if (shouldThrowError()) {
+                    Result.failure(Exception("Erreur lors de la mise à jour de la disponibilité"))
+                } else {
+                    if (item is BaseLibraryItem) {
+                        item.changeAvailability(isAvailable)
+                        Result.success(Unit)
+                    } else {
+                        Result.failure(Exception("Type d'item non supporté"))
+                    }
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+    override suspend fun deleteItem(itemId: Int): Result<Boolean> = withContext(Dispatchers.IO) {
+        try {
+            simulateDelay()
+            if (shouldThrowError()) {
+                Result.failure(Exception("Erreur lors de la suppression"))
+            } else {
+                Result.success(dataSource.deleteItem(itemId))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 
-    override fun deleteItem(itemId: Int): Boolean = dataSource.deleteItem(itemId)
-
-
-    override fun addBook(book: LibraryItemType.Book) {
-        dataSource.addItem(book)
+    override suspend fun addBook(book: LibraryItemType.Book): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            simulateDelay()
+            if (shouldThrowError()) {
+                Result.failure(Exception("Erreur lors de l'ajout du livre"))
+            } else {
+                dataSource.addItem(book)
+                Result.success(Unit)
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
-    override fun addNewspaper(newspaper: LibraryItemType.Newspaper) {
-        dataSource.addItem(newspaper)
+    override suspend fun addNewspaper(newspaper: LibraryItemType.Newspaper): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            try {
+                simulateDelay()
+                if (shouldThrowError()) {
+                    Result.failure(Exception("Erreur lors de l'ajout du journal"))
+                } else {
+                    dataSource.addItem(newspaper)
+                    Result.success(Unit)
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+        override suspend fun addDisk(disk: LibraryItemType.Disk): Result<Unit> = withContext(Dispatchers.IO) {
+            try {
+                simulateDelay()
+                if (shouldThrowError()) {
+                    Result.failure(Exception("Erreur lors de l'ajout du disque"))
+                } else {
+                    dataSource.addItem(disk)
+                    Result.success(Unit)
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+    override suspend fun updateBook(book: LibraryItemType.Book): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            simulateDelay()
+            if (shouldThrowError()) {
+                Result.failure(Exception("Erreur lors de la mise à jour du livre"))
+            } else {
+                dataSource.updateItem(book)
+                Result.success(Unit)
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
-    override fun addDisk(disk: LibraryItemType.Disk) {
-        dataSource.addItem(disk)
+    override suspend fun updateNewspaper(newspaper: LibraryItemType.Newspaper): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            try {
+                simulateDelay()
+                if (shouldThrowError()) {
+                    Result.failure(Exception("Erreur lors de la mise à jour du journal"))
+                } else {
+                    dataSource.updateItem(newspaper)
+                    Result.success(Unit)
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+    override suspend fun updateDisk(disk: LibraryItemType.Disk): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            simulateDelay()
+            if (shouldThrowError()) {
+                Result.failure(Exception("Erreur lors de la mise à jour du disque"))
+            } else {
+                dataSource.updateItem(disk)
+                Result.success(Unit)
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
-    override fun updateBook(book: LibraryItemType.Book) {
-        dataSource.updateItem(book)
+
+    private suspend fun simulateDelay() {
+        delay(Random.nextLong(100, 2000))
     }
 
-    override fun updateNewspaper(newspaper: LibraryItemType.Newspaper) {
-        dataSource.updateItem(newspaper)
-    }
-
-    override fun updateDisk(disk: LibraryItemType.Disk) {
-        dataSource.updateItem(disk)
+    private fun shouldThrowError(): Boolean {
+        return false
     }
 }

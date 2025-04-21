@@ -1,10 +1,15 @@
 package ru.bmstu.libraryapp.presentation.views.fragments
 
+import android.content.res.Configuration
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -16,6 +21,8 @@ import ru.bmstu.libraryapp.domain.repositories.LibraryRepository
 import ru.bmstu.libraryapp.presentation.viewmodels.MainViewModel
 import ru.bmstu.libraryapp.presentation.views.adapters.LibraryItemAdapter
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.snackbar.Snackbar
+import kotlinx.coroutines.launch
 import ru.bmstu.libraryapp.data.datasources.InMemoryDataSource
 import ru.bmstu.libraryapp.data.repositories.LibraryRepositoryImpl
 import ru.bmstu.libraryapp.domain.entities.DetailMode
@@ -57,21 +64,62 @@ class LibraryListFragment : BaseFragment() {
         return false
     }
 
-
     private fun observeViewModel() {
-        viewModel.libraryItems.observe(viewLifecycleOwner) { items ->
-            adapter.submitList(items)
+        // Chargez les données dès que le Fragment est créé
+        viewModel.refreshItems()
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch {
+                    viewModel.items.collect { items ->
+                        Log.d("LibraryListFragment", "Items collected: ${items.size} items")
+                        adapter.submitList(items) {
+                            // Scroll après mise à jour si nécessaire
+                            lastCreatedItemId?.let { scrollToItem(it) }
+                            updateEmptyState(items.isEmpty())
+                        }
+                    }
+                }
+
+                launch {
+                    viewModel.loading.collect { isLoading ->
+                        binding.shimmerLayout.visibility = if (isLoading) View.VISIBLE else View.GONE
+                        binding.recyclerView.visibility = if (isLoading) View.GONE else View.VISIBLE
+
+                        if (isLoading) {
+                            binding.shimmerLayout.startShimmer()
+                        } else {
+                            binding.shimmerLayout.stopShimmer()
+                        }
+                    }
+                }
+
+                launch {
+                    viewModel.error.collect { errorMessage ->
+                        errorMessage?.let {
+                            Snackbar.make(binding.root, it, Snackbar.LENGTH_LONG)
+                                .setAction("Réessayer") {
+                                    viewModel.refreshItems()
+                                }
+                                .show()
+                        }
+                    }
+                }
+            }
         }
     }
 
     private fun setupRecyclerView() {
         adapter = LibraryItemAdapter { item ->
             openDetailFragment(item, DetailMode.VIEW)
+        }.apply {
+            stateRestorationPolicy = RecyclerView.Adapter.StateRestorationPolicy.PREVENT_WHEN_EMPTY
         }
 
         binding.recyclerView.apply {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = this@LibraryListFragment.adapter
+            setHasFixedSize(true)
         }
     }
 
@@ -142,6 +190,28 @@ class LibraryListFragment : BaseFragment() {
                 if (position != RecyclerView.NO_POSITION) {
                     val item = adapter.currentList[position]
                     viewModel.deleteItem(item.id)
+
+                    val detailContainer = activity?.findViewById<View>(R.id.detail_container)
+                    if (detailContainer != null) {
+                        val currentDetailFragment = parentFragmentManager
+                            .findFragmentById(R.id.detail_container) as? LibraryItemDetailFragment
+
+                        if (currentDetailFragment?.getCurrentItemId() == item.id) {
+                            parentFragmentManager.beginTransaction()
+                                .remove(currentDetailFragment)
+                                .commit()
+                        }
+                    }
+                    Snackbar.make(
+                        binding.root,
+                        R.string.item_deleted,
+                        Snackbar.LENGTH_LONG
+                    ).setAction(R.string.undo) {
+                        viewModel.undoDelete(item)
+                        if (detailContainer != null && resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+                            openDetailFragment(item, DetailMode.VIEW)
+                        }
+                    }.show()
                 }
             }
         })
@@ -171,7 +241,19 @@ class LibraryListFragment : BaseFragment() {
         }
     }
 
+    private fun updateEmptyState(isEmpty: Boolean) {
+        binding.apply {
+            if (isEmpty && !viewModel.loading.value) {
+                emptyState.visibility = View.VISIBLE
+                recyclerView.visibility = View.GONE
+            } else {
+                emptyState.visibility = View.GONE
+                recyclerView.visibility = View.VISIBLE
+            }
+        }
+    }
     override fun onDestroyView() {
+        binding.shimmerLayout.stopShimmer()
         super.onDestroyView()
         _binding = null
     }

@@ -30,7 +30,7 @@ class LibraryItemDetailViewModel(
         _item.value = initialItem
     }
 
-    fun saveItem(updatedItem: LibraryItem) {
+    suspend fun saveItem(updatedItem: LibraryItem) {
         _loading.value = true
         try {
             when (mode) {

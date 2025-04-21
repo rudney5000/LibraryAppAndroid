@@ -1,22 +1,27 @@
 package ru.bmstu.libraryapp.presentation.viewmodels
 
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import ru.bmstu.libraryapp.domain.entities.LibraryItemType
 import ru.bmstu.libraryapp.domain.repositories.LibraryRepository
 
 class MainViewModel(private val repository: LibraryRepository) : ViewModel() {
 
-    private val _libraryItems = MutableLiveData<List<LibraryItemType>>()
-    val libraryItems: LiveData<List<LibraryItemType>> = _libraryItems
+    private val _libraryItems = MutableStateFlow<List<LibraryItemType>>(emptyList())
+    val items: StateFlow<List<LibraryItemType>> = _libraryItems.asStateFlow()
 
-    private val _loading = MutableLiveData<Boolean>()
+    private val _loading = MutableStateFlow(false)
+    val loading: StateFlow<Boolean> = _loading.asStateFlow()
 
-    private val _error = MutableLiveData<String?>()
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error.asStateFlow()
+
+    private var lastDeletedItem: LibraryItemType? = null
 
     init {
         loadAllItems()
@@ -26,66 +31,98 @@ class MainViewModel(private val repository: LibraryRepository) : ViewModel() {
         loadAllItems()
     }
 
-    fun loadAllItems() {
-        _loading.value = true
-        try {
-            val items = mutableListOf<LibraryItemType>().apply {
-                addAll(repository.getAllBooks().map { book ->
-                    LibraryItemType.Book(
-                        id = book.id,
-                        title = book.title,
-                        isAvailable = book.isAvailable,
-                        author = book.author,
-                        pages = book.pages
-                    )
-                })
-                addAll(repository.getAllNewspapers().map { newspaper ->
-                    LibraryItemType.Newspaper(
-                        id = newspaper.id,
-                        title = newspaper.title,
-                        isAvailable = newspaper.isAvailable,
-                        issueNumber = newspaper.issueNumber,
-                        month = newspaper.month
-                    )
-                })
-                addAll(repository.getAllDisks().map { disk ->
-                    LibraryItemType.Disk(
-                        id = disk.id,
-                        title = disk.title,
-                        isAvailable = disk.isAvailable,
-                        type = disk.type
-                    )
-                })
-            }
-            _libraryItems.value = items
+    private fun loadAllItems() {
+        viewModelScope.launch {
+            _loading.value = true
             _error.value = null
-        } catch (e: Exception) {
-            _error.value = e.message
-        } finally {
-            _loading.value = false
+
+            try {
+
+                val allItems = mutableListOf<LibraryItemType>()
+                val errorMessages = mutableListOf<String>()
+
+                repository.getAllBooks().fold(
+                    onSuccess = { books -> allItems.addAll(books) },
+                    onFailure = { errorMessages.add("livres") }
+                )
+
+                repository.getAllNewspapers().fold(
+                    onSuccess = { newspapers -> allItems.addAll(newspapers) },
+                    onFailure = { errorMessages.add("journaux") }
+                )
+
+                repository.getAllDisks().fold(
+                    onSuccess = { disks -> allItems.addAll(disks) },
+                    onFailure = { errorMessages.add("disques") }
+                )
+                _libraryItems.value = allItems
+
+                if (errorMessages.isNotEmpty()) {
+                    _error.value = "Erreur lors du chargement des ${errorMessages.joinToString(", ")}"
+                }
+            } catch (e: Exception) {
+                _error.value = "Erreur inattendue: ${e.message}"
+                _libraryItems.value = emptyList()
+            } finally {
+                _loading.value = false
+            }
+        }
+    }
+
+    fun undoDelete(item: LibraryItemType) {
+        viewModelScope.launch {
+            lastDeletedItem?.let { item ->
+                try {
+                    val result = when (item) {
+                        is LibraryItemType.Book -> repository.addBook(item)
+                        is LibraryItemType.Newspaper -> repository.addNewspaper(item)
+                        is LibraryItemType.Disk -> repository.addDisk(item)
+                    }
+                    if (result.isSuccess) {
+                        refreshItems()
+                        lastDeletedItem = null
+                    } else {
+                        _error.value = "Échec de la restauration"
+                    }
+                } catch (e: Exception) {
+                    _error.value = e.message
+                }
+            }
         }
     }
 
     fun deleteItem(itemId: Int) {
-        _loading.value = true
-        try {
-            val success = repository.deleteItem(itemId)
-            if (success) {
-                _libraryItems.value = _libraryItems.value?.filter { it.id != itemId }
-            } else {
-                _error.value = "error deleting item"
+        viewModelScope.launch {
+            _loading.value = true
+            try {
+                val result = repository.deleteItem(itemId)
+                result.fold(
+                    onSuccess = { success ->
+                        if (success) {
+                            _libraryItems.value = _libraryItems.value?.filter { it.id != itemId }!!
+                        } else {
+                            _error.value = "Échec de la suppression de l'élément"
+                        }
+                    },
+                    onFailure = { exception ->
+                        _error.value = "Erreur lors de la suppression: ${exception.message}"
+                    }
+                )
+            } catch (e: Exception) {
+                _error.value = "Erreur inattendue lors de la suppression: ${e.message}"
+            } finally {
+                _loading.value = false
             }
-        } catch (e: Exception) {
-            _error.value = e.message
-        } finally {
-            _loading.value = false
         }
     }
 
     companion object {
-        fun provideFactory(repository: LibraryRepository): ViewModelProvider.Factory = viewModelFactory {
-            initializer {
-                MainViewModel(repository)
+        fun provideFactory(repository: LibraryRepository): ViewModelProvider.Factory {
+            return object : ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                    return MainViewModel(repository) as T
+                }
             }
         }
     }

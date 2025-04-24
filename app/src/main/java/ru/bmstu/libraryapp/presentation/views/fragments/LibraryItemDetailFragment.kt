@@ -182,12 +182,10 @@ class LibraryItemDetailFragment : BaseFragment() {
             .fragments
             .firstOrNull { it is LibraryListFragment } as? LibraryListFragment
 
-//        libraryListFragment?.refreshList()
         libraryListFragment?.apply {
             refreshList()
             scrollToItem(updatedItem.id)
         }
-//        navigateBack()
         if (resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
             item = updatedItem
             setupViews()

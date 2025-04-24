@@ -8,6 +8,8 @@ import ru.bmstu.libraryapp.presentation.utils.filterByType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import ru.bmstu.libraryapp.presentation.utils.LibraryException
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.random.Random
 
 /**
@@ -21,16 +23,10 @@ class LibraryRepositoryImpl(private val dataSource: LocalDataSource) : LibraryRe
      * Получение всех книг.
      * @return Список всех книг
      */
+
     override suspend fun getAllBooks(): Result<List<LibraryItemType.Book>> = withContext(Dispatchers.IO) {
-        try {
-            simulateDelay()
-            if (shouldThrowError()) {
-                Result.failure(Exception("Erreur lors du chargement des livres"))
-            } else {
-                Result.success(dataSource.getAllItems().filterByType())
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
+        handleRequest("books") {
+            dataSource.getAllItems().filterByType<LibraryItemType.Book>()
         }
     }
 
@@ -40,15 +36,8 @@ class LibraryRepositoryImpl(private val dataSource: LocalDataSource) : LibraryRe
      */
 
     override suspend fun getAllNewspapers(): Result<List<LibraryItemType.Newspaper>> = withContext(Dispatchers.IO) {
-        try {
-            simulateDelay()
-            if (shouldThrowError()) {
-                Result.failure(Exception("Erreur lors du chargement des journaux"))
-            } else {
-                Result.success(dataSource.getAllItems().filterByType())
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
+        handleRequest("newspapers") {
+            dataSource.getAllItems().filterByType<LibraryItemType.Newspaper>()
         }
     }
 
@@ -59,15 +48,8 @@ class LibraryRepositoryImpl(private val dataSource: LocalDataSource) : LibraryRe
      */
 
     override suspend fun getAllDisks(): Result<List<LibraryItemType.Disk>> = withContext(Dispatchers.IO) {
-        try {
-            simulateDelay()
-            if (shouldThrowError()) {
-                Result.failure(Exception("Erreur lors du chargement des disques"))
-            } else {
-                Result.success(dataSource.getAllItems().filterByType())
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
+        handleRequest("disks") {
+            dataSource.getAllItems().filterByType<LibraryItemType.Disk>()
         }
     }
 
@@ -81,13 +63,13 @@ class LibraryRepositoryImpl(private val dataSource: LocalDataSource) : LibraryRe
             try {
                 simulateDelay()
                 if (shouldThrowError()) {
-                    Result.failure(Exception("Erreur lors de la mise à jour de la disponibilité"))
+                    Result.failure(Exception("Error updating availability"))
                 } else {
                     if (item is BaseLibraryItem) {
                         item.changeAvailability(isAvailable)
                         Result.success(Unit)
                     } else {
-                        Result.failure(Exception("Type d'item non supporté"))
+                        Result.failure(Exception("Item type not supported"))
                     }
                 }
             } catch (e: Exception) {
@@ -99,106 +81,99 @@ class LibraryRepositoryImpl(private val dataSource: LocalDataSource) : LibraryRe
         try {
             simulateDelay()
             if (shouldThrowError()) {
-                Result.failure(Exception("Erreur lors de la suppression"))
+                Result.failure(LibraryException.DeleteError(itemId))
             } else {
                 Result.success(dataSource.deleteItem(itemId))
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(LibraryException.DeleteError(itemId))
         }
     }
 
     override suspend fun addBook(book: LibraryItemType.Book): Result<Unit> = withContext(Dispatchers.IO) {
-        try {
-            simulateDelay()
-            if (shouldThrowError()) {
-                Result.failure(Exception("Erreur lors de l'ajout du livre"))
-            } else {
-                dataSource.addItem(book)
-                Result.success(Unit)
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
+        handleMutation("add book") {
+            dataSource.addItem(book)
         }
     }
 
-    override suspend fun addNewspaper(newspaper: LibraryItemType.Newspaper): Result<Unit> =
-        withContext(Dispatchers.IO) {
-            try {
-                simulateDelay()
-                if (shouldThrowError()) {
-                    Result.failure(Exception("Erreur lors de l'ajout du journal"))
-                } else {
-                    dataSource.addItem(newspaper)
-                    Result.success(Unit)
-                }
-            } catch (e: Exception) {
-                Result.failure(e)
-            }
+    override suspend fun addNewspaper(newspaper: LibraryItemType.Newspaper): Result<Unit> = withContext(Dispatchers.IO) {
+        handleMutation("add newspaper") {
+            dataSource.addItem(newspaper)
         }
-        override suspend fun addDisk(disk: LibraryItemType.Disk): Result<Unit> = withContext(Dispatchers.IO) {
-            try {
-                simulateDelay()
-                if (shouldThrowError()) {
-                    Result.failure(Exception("Erreur lors de l'ajout du disque"))
-                } else {
-                    dataSource.addItem(disk)
-                    Result.success(Unit)
-                }
-            } catch (e: Exception) {
-                Result.failure(e)
-            }
+    }
+
+    override suspend fun addDisk(disk: LibraryItemType.Disk): Result<Unit> = withContext(Dispatchers.IO) {
+        handleMutation("add disk") {
+            dataSource.addItem(disk)
         }
+    }
 
     override suspend fun updateBook(book: LibraryItemType.Book): Result<Unit> = withContext(Dispatchers.IO) {
-        try {
-            simulateDelay()
-            if (shouldThrowError()) {
-                Result.failure(Exception("Erreur lors de la mise à jour du livre"))
-            } else {
-                dataSource.updateItem(book)
-                Result.success(Unit)
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
+        handleMutation("update book") {
+            dataSource.updateItem(book) || throw LibraryException.SaveError("book")
         }
     }
 
-    override suspend fun updateNewspaper(newspaper: LibraryItemType.Newspaper): Result<Unit> =
-        withContext(Dispatchers.IO) {
-            try {
-                simulateDelay()
-                if (shouldThrowError()) {
-                    Result.failure(Exception("Erreur lors de la mise à jour du journal"))
-                } else {
-                    dataSource.updateItem(newspaper)
-                    Result.success(Unit)
-                }
-            } catch (e: Exception) {
-                Result.failure(e)
-            }
+    override suspend fun updateNewspaper(newspaper: LibraryItemType.Newspaper): Result<Unit> = withContext(Dispatchers.IO) {
+        handleMutation("update newspaper") {
+            dataSource.updateItem(newspaper) || throw LibraryException.SaveError("newspaper")
         }
+    }
 
     override suspend fun updateDisk(disk: LibraryItemType.Disk): Result<Unit> = withContext(Dispatchers.IO) {
-        try {
-            simulateDelay()
-            if (shouldThrowError()) {
-                Result.failure(Exception("Erreur lors de la mise à jour du disque"))
-            } else {
-                dataSource.updateItem(disk)
-                Result.success(Unit)
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
+        handleMutation("update disk") {
+            dataSource.updateItem(disk) || throw LibraryException.SaveError("disk")
         }
     }
 
 
     private suspend fun simulateDelay() {
-        delay(Random.nextLong(100, 2000))
+        delay(Random.nextLong(500, 1500))
     }
 
     private fun shouldThrowError(): Boolean {
-        return false
+        return Random.nextFloat() < 0.1f
+    }
+
+    private suspend fun <T> handleRequest(
+        itemType: String,
+        block: suspend () -> T
+    ): Result<T> {
+        return try {
+            simulateDelay()
+            if (shouldThrowError()) {
+                Result.failure(LibraryException.LoadError(itemType))
+            } else {
+                Result.success(block())
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(LibraryException.LoadError(itemType))
+        }
+    }
+
+    private suspend fun handleMutation(
+        operation: String,
+        block: suspend () -> Boolean
+    ): Result<Unit> {
+        return try {
+            simulateDelay()
+            if (shouldThrowError()) {
+                Result.failure(LibraryException.SaveError(operation))
+            } else {
+                if (block()) {
+                    Result.success(Unit)
+                } else {
+                    Result.failure(LibraryException.SaveError(operation))
+                }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(LibraryException.SaveError(operation))
+        }
     }
 }

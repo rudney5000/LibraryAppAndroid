@@ -2,7 +2,6 @@ package ru.bmstu.libraryapp.presentation.views.fragments
 
 import android.content.res.Configuration
 import android.os.Bundle
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -65,16 +64,13 @@ class LibraryListFragment : BaseFragment() {
     }
 
     private fun observeViewModel() {
-        // Chargez les données dès que le Fragment est créé
         viewModel.refreshItems()
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
                     viewModel.items.collect { items ->
-                        Log.d("LibraryListFragment", "Items collected: ${items.size} items")
                         adapter.submitList(items) {
-                            // Scroll après mise à jour si nécessaire
                             lastCreatedItemId?.let { scrollToItem(it) }
                             updateEmptyState(items.isEmpty())
                         }
@@ -83,13 +79,13 @@ class LibraryListFragment : BaseFragment() {
 
                 launch {
                     viewModel.loading.collect { isLoading ->
-                        binding.shimmerLayout.visibility = if (isLoading) View.VISIBLE else View.GONE
+                        binding.loadingState.visibility = if (isLoading) View.VISIBLE else View.GONE
                         binding.recyclerView.visibility = if (isLoading) View.GONE else View.VISIBLE
 
                         if (isLoading) {
-                            binding.shimmerLayout.startShimmer()
+                            binding.loadingState.startShimmer()
                         } else {
-                            binding.shimmerLayout.stopShimmer()
+                            binding.loadingState.stopShimmer()
                         }
                     }
                 }
@@ -98,7 +94,7 @@ class LibraryListFragment : BaseFragment() {
                     viewModel.error.collect { errorMessage ->
                         errorMessage?.let {
                             Snackbar.make(binding.root, it, Snackbar.LENGTH_LONG)
-                                .setAction("Réessayer") {
+                                .setAction("Try again") {
                                     viewModel.refreshItems()
                                 }
                                 .show()
@@ -253,7 +249,7 @@ class LibraryListFragment : BaseFragment() {
         }
     }
     override fun onDestroyView() {
-        binding.shimmerLayout.stopShimmer()
+        binding.loadingState.stopShimmer()
         super.onDestroyView()
         _binding = null
     }

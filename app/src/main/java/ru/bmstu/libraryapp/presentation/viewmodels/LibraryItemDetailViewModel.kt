@@ -40,7 +40,7 @@ class LibraryItemDetailViewModel(
                         is LibraryItemType.Newspaper -> repository.addNewspaper(updatedItem)
                         is LibraryItemType.Disk -> repository.addDisk(updatedItem)
                         else -> throw IllegalArgumentException("Type element not supported")
-                    }
+                    }.getOrThrow()
                 }
                 DetailMode.EDIT -> {
                     when (updatedItem) {
@@ -48,7 +48,7 @@ class LibraryItemDetailViewModel(
                         is LibraryItemType.Newspaper -> repository.updateNewspaper(updatedItem)
                         is LibraryItemType.Disk -> repository.updateDisk(updatedItem)
                         else -> throw IllegalArgumentException("Type element not supported")
-                    }
+                    }.getOrThrow()
                 }
                 else -> {}
             }

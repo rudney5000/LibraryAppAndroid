@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import ru.bmstu.libraryapp.domain.entities.LibraryItemType
 import ru.bmstu.libraryapp.domain.repositories.LibraryRepository
+import ru.bmstu.libraryapp.presentation.viewmodels.state.MainViewState
 
 class MainViewModel(private val repository: LibraryRepository) : ViewModel() {
 
@@ -23,6 +24,9 @@ class MainViewModel(private val repository: LibraryRepository) : ViewModel() {
 
     private var lastDeletedItem: LibraryItemType? = null
 
+    private val _state = MutableStateFlow<MainViewState>(MainViewState.Loading)
+    val state: StateFlow<MainViewState> = _state.asStateFlow()
+
     init {
         loadAllItems()
     }
@@ -35,6 +39,7 @@ class MainViewModel(private val repository: LibraryRepository) : ViewModel() {
         viewModelScope.launch {
             _loading.value = true
             _error.value = null
+            _state.value = MainViewState.Loading
 
             try {
 
@@ -43,25 +48,25 @@ class MainViewModel(private val repository: LibraryRepository) : ViewModel() {
 
                 repository.getAllBooks().fold(
                     onSuccess = { books -> allItems.addAll(books) },
-                    onFailure = { errorMessages.add("livres") }
+                    onFailure = { errorMessages.add("books") }
                 )
 
                 repository.getAllNewspapers().fold(
                     onSuccess = { newspapers -> allItems.addAll(newspapers) },
-                    onFailure = { errorMessages.add("journaux") }
+                    onFailure = { errorMessages.add("newspapers") }
                 )
 
                 repository.getAllDisks().fold(
                     onSuccess = { disks -> allItems.addAll(disks) },
-                    onFailure = { errorMessages.add("disques") }
+                    onFailure = { errorMessages.add("disk") }
                 )
                 _libraryItems.value = allItems
 
                 if (errorMessages.isNotEmpty()) {
-                    _error.value = "Erreur lors du chargement des ${errorMessages.joinToString(", ")}"
+                    _error.value = "Error loading ${errorMessages.joinToString(", ")}"
                 }
             } catch (e: Exception) {
-                _error.value = "Erreur inattendue: ${e.message}"
+                _error.value = "Unexpected error: ${e.message}"
                 _libraryItems.value = emptyList()
             } finally {
                 _loading.value = false
@@ -82,7 +87,7 @@ class MainViewModel(private val repository: LibraryRepository) : ViewModel() {
                         refreshItems()
                         lastDeletedItem = null
                     } else {
-                        _error.value = "Échec de la restauration"
+                        _error.value = "Restoration failed"
                     }
                 } catch (e: Exception) {
                     _error.value = e.message
@@ -93,26 +98,14 @@ class MainViewModel(private val repository: LibraryRepository) : ViewModel() {
 
     fun deleteItem(itemId: Int) {
         viewModelScope.launch {
-            _loading.value = true
-            try {
-                val result = repository.deleteItem(itemId)
-                result.fold(
-                    onSuccess = { success ->
-                        if (success) {
-                            _libraryItems.value = _libraryItems.value?.filter { it.id != itemId }!!
-                        } else {
-                            _error.value = "Échec de la suppression de l'élément"
-                        }
-                    },
-                    onFailure = { exception ->
-                        _error.value = "Erreur lors de la suppression: ${exception.message}"
-                    }
-                )
-            } catch (e: Exception) {
-                _error.value = "Erreur inattendue lors de la suppression: ${e.message}"
-            } finally {
-                _loading.value = false
-            }
+            _state.value = MainViewState.Loading
+            repository.deleteItem(itemId)
+                .onSuccess {
+                    refreshItems()
+                }
+                .onFailure {
+                    _state.value = MainViewState.Error("Delete failed")
+                }
         }
     }
 

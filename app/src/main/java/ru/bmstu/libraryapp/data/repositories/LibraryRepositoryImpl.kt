@@ -18,12 +18,10 @@ import kotlin.random.Random
  * @param dataSource Источник данных
  */
 class LibraryRepositoryImpl(private val dataSource: LocalDataSource) : LibraryRepository {
-
     /**
      * Получение всех книг.
      * @return Список всех книг
      */
-
     override suspend fun getAllBooks(): Result<List<LibraryItemType.Book>> = withContext(Dispatchers.IO) {
         handleRequest("books") {
             dataSource.getAllItems().filterByType<LibraryItemType.Book>()
@@ -34,7 +32,6 @@ class LibraryRepositoryImpl(private val dataSource: LocalDataSource) : LibraryRe
      * Получение всех газет.
      * @return Список всех газет
      */
-
     override suspend fun getAllNewspapers(): Result<List<LibraryItemType.Newspaper>> = withContext(Dispatchers.IO) {
         handleRequest("newspapers") {
             dataSource.getAllItems().filterByType<LibraryItemType.Newspaper>()
@@ -46,7 +43,6 @@ class LibraryRepositoryImpl(private val dataSource: LocalDataSource) : LibraryRe
      * Получение всех дисков.
      * @return Список всех дисков
      */
-
     override suspend fun getAllDisks(): Result<List<LibraryItemType.Disk>> = withContext(Dispatchers.IO) {
         handleRequest("disks") {
             dataSource.getAllItems().filterByType<LibraryItemType.Disk>()
@@ -63,13 +59,13 @@ class LibraryRepositoryImpl(private val dataSource: LocalDataSource) : LibraryRe
             try {
                 simulateDelay()
                 if (shouldThrowError()) {
-                    Result.failure(Exception("Error updating availability"))
+                    Result.failure(LibraryException.UpdateError("Error updating availability"))
                 } else {
                     if (item is BaseLibraryItem) {
                         item.changeAvailability(isAvailable)
                         Result.success(Unit)
                     } else {
-                        Result.failure(Exception("Item type not supported"))
+                        Result.failure(LibraryException.UpdateError("Item type not supported"))
                     }
                 }
             } catch (e: Exception) {
@@ -130,7 +126,7 @@ class LibraryRepositoryImpl(private val dataSource: LocalDataSource) : LibraryRe
 
 
     private suspend fun simulateDelay() {
-        delay(Random.nextLong(500, 1500))
+        delay(Random.nextLong(100, 300))
     }
 
     private fun shouldThrowError(): Boolean {

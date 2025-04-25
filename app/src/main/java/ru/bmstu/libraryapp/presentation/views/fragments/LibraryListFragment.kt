@@ -31,6 +31,7 @@ class LibraryListFragment : BaseFragment() {
     private var _binding: FragmentLibraryListBinding? = null
     private val binding get() = _binding!!
     private var lastCreatedItemId: Int? = null
+    private var lastDeletedItem: LibraryItemType? = null
     
     private lateinit var adapter: LibraryItemAdapter
     private val repository: LibraryRepository by lazy {
@@ -179,33 +180,36 @@ class LibraryListFragment : BaseFragment() {
             0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT
         ) {
             override fun onMove(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder,
-                              target: RecyclerView.ViewHolder) = false
+                                target: RecyclerView.ViewHolder) = false
 
             override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
                 val position = viewHolder.bindingAdapterPosition
                 if (position != RecyclerView.NO_POSITION) {
                     val item = adapter.currentList[position]
+                    lastDeletedItem = item
                     viewModel.deleteItem(item.id)
-
                     val detailContainer = activity?.findViewById<View>(R.id.detail_container)
                     if (detailContainer != null) {
                         val currentDetailFragment = parentFragmentManager
                             .findFragmentById(R.id.detail_container) as? LibraryItemDetailFragment
-
                         if (currentDetailFragment?.getCurrentItemId() == item.id) {
                             parentFragmentManager.beginTransaction()
                                 .remove(currentDetailFragment)
                                 .commit()
                         }
                     }
+
                     Snackbar.make(
                         binding.root,
                         R.string.item_deleted,
                         Snackbar.LENGTH_LONG
                     ).setAction(R.string.undo) {
-                        viewModel.undoDelete(item)
-                        if (detailContainer != null && resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
-                            openDetailFragment(item, DetailMode.VIEW)
+                        lastDeletedItem?.let { restoredItem ->
+                            viewModel.restoreItem(restoredItem)
+                            lastDeletedItem = null
+                            if (detailContainer != null && resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+                                openDetailFragment(restoredItem, DetailMode.VIEW)
+                            }
                         }
                     }.show()
                 }

@@ -169,7 +169,7 @@ class LibraryItemDetailFragment : BaseFragment() {
         specificFields[tag] = fieldBinding.textInputEditText
     }
 
-    private suspend fun saveItem() {
+    private fun saveItem() {
         val updatedItem = when (val originalItem = item) {
             is LibraryItemType.Book -> createUpdatedBook(originalItem)
             is LibraryItemType.Newspaper -> createUpdatedNewspaper(originalItem)

@@ -22,7 +22,6 @@ class MainViewModel(private val repository: LibraryRepository) : ViewModel() {
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
-    private var lastDeletedItem: LibraryItemType? = null
 
     private val _state = MutableStateFlow<MainViewState>(MainViewState.Loading)
     val state: StateFlow<MainViewState> = _state.asStateFlow()
@@ -74,38 +73,36 @@ class MainViewModel(private val repository: LibraryRepository) : ViewModel() {
         }
     }
 
-    fun undoDelete(item: LibraryItemType) {
-        viewModelScope.launch {
-            lastDeletedItem?.let { item ->
-                try {
-                    val result = when (item) {
-                        is LibraryItemType.Book -> repository.addBook(item)
-                        is LibraryItemType.Newspaper -> repository.addNewspaper(item)
-                        is LibraryItemType.Disk -> repository.addDisk(item)
-                    }
-                    if (result.isSuccess) {
+
+    fun deleteItem(itemId: Int): LibraryItemType? {
+        val item = _libraryItems.value.find { it.id == itemId }
+        if (item != null) {
+            viewModelScope.launch {
+                repository.deleteItem(itemId)
+                    .onSuccess {
                         refreshItems()
-                        lastDeletedItem = null
-                    } else {
-                        _error.value = "Restoration failed"
                     }
-                } catch (e: Exception) {
-                    _error.value = e.message
-                }
+                    .onFailure {
+                        _state.value = MainViewState.Error("Delete failed")
+                    }
             }
+            return item
         }
+        return null
     }
 
-    fun deleteItem(itemId: Int) {
+    fun restoreItem(item: LibraryItemType) {
         viewModelScope.launch {
-            _state.value = MainViewState.Loading
-            repository.deleteItem(itemId)
-                .onSuccess {
-                    refreshItems()
+            try {
+                when (item) {
+                    is LibraryItemType.Book -> repository.addBook(item)
+                    is LibraryItemType.Newspaper -> repository.addNewspaper(item)
+                    is LibraryItemType.Disk -> repository.addDisk(item)
                 }
-                .onFailure {
-                    _state.value = MainViewState.Error("Delete failed")
-                }
+                refreshItems()
+            } catch (e: Exception) {
+                _error.value = e.message
+            }
         }
     }
 

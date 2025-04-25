@@ -4,10 +4,15 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import ru.bmstu.libraryapp.domain.entities.DetailMode
 import ru.bmstu.libraryapp.domain.entities.LibraryItem
 import ru.bmstu.libraryapp.domain.entities.LibraryItemType
 import ru.bmstu.libraryapp.domain.repositories.LibraryRepository
+import ru.bmstu.libraryapp.presentation.utils.LibraryException
+import kotlin.coroutines.cancellation.CancellationException
 
 class LibraryItemDetailViewModel(
     private val repository: LibraryRepository,
@@ -31,34 +36,52 @@ class LibraryItemDetailViewModel(
     }
 
     fun saveItem(updatedItem: LibraryItem) {
-        _loading.value = true
-        try {
-            when (mode) {
-                DetailMode.CREATE -> {
-                    when (updatedItem) {
-                        is LibraryItemType.Book -> repository.addBook(updatedItem)
-                        is LibraryItemType.Newspaper -> repository.addNewspaper(updatedItem)
-                        is LibraryItemType.Disk -> repository.addDisk(updatedItem)
-                        else -> throw IllegalArgumentException("Type element not supported")
+        viewModelScope.launch(Dispatchers.IO) {
+            _loading.postValue(true)
+            try {
+                val result = when (mode) {
+                    DetailMode.CREATE -> {
+                        createItem(updatedItem)
+                    }
+                    DetailMode.EDIT -> {
+                        updateItem(updatedItem)
+                    }
+                    else -> {
+                        Result.failure(LibraryException.UpdateError("Invalid mode"))
                     }
                 }
-                DetailMode.EDIT -> {
-                    when (updatedItem) {
-                        is LibraryItemType.Book -> repository.updateBook(updatedItem)
-                        is LibraryItemType.Newspaper -> repository.updateNewspaper(updatedItem)
-                        is LibraryItemType.Disk -> repository.updateDisk(updatedItem)
-                        else -> throw IllegalArgumentException("Type element not supported")
-                    }
+
+                if (result.isSuccess) {
+                    _item.postValue(updatedItem)
+                    _saveSuccess.postValue(true)
+                } else {
+                    throw result.exceptionOrNull() ?: LibraryException.LoadError("Unknown erro")
                 }
-                else -> {}
+            } catch (e: CancellationException) {
+            } catch (e: Exception) {
+                _error.postValue(e.message)
+                _saveSuccess.postValue(false)
+            } finally {
+                _loading.postValue(false)
             }
-            _item.value = updatedItem
-            _saveSuccess.value = true
-        } catch (e: Exception) {
-            _error.value = e.message
-            _saveSuccess.value = false
-        } finally {
-            _loading.value = false
+        }
+    }
+
+    private suspend fun createItem(item: LibraryItem): Result<Unit> {
+        return when (item) {
+            is LibraryItemType.Book -> repository.addBook(item)
+            is LibraryItemType.Newspaper -> repository.addNewspaper(item)
+            is LibraryItemType.Disk -> repository.addDisk(item)
+            else -> Result.failure(LibraryException.SaveError("Type element not supported"))
+        }
+    }
+
+    private suspend fun updateItem(item: LibraryItem): Result<Unit> {
+        return when (item) {
+            is LibraryItemType.Book -> repository.updateBook(item)
+            is LibraryItemType.Newspaper -> repository.updateNewspaper(item)
+            is LibraryItemType.Disk -> repository.updateDisk(item)
+            else -> Result.failure(LibraryException.UpdateError("Type element not supported"))
         }
     }
 
@@ -72,7 +95,7 @@ class LibraryItemDetailViewModel(
             if (modelClass.isAssignableFrom(LibraryItemDetailViewModel::class.java)) {
                 return LibraryItemDetailViewModel(repository, initialItem, mode) as T
             }
-            throw IllegalArgumentException("Unknown ViewModel class")
+            throw LibraryException.LoadError("Unknown ViewModel class")
         }
     }
 }

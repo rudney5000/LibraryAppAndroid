@@ -1,22 +1,33 @@
 package ru.bmstu.libraryapp.presentation.viewmodels
 
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import ru.bmstu.libraryapp.domain.entities.LibraryItemType
 import ru.bmstu.libraryapp.domain.repositories.LibraryRepository
+import ru.bmstu.libraryapp.presentation.viewmodels.state.MainViewState
 
 class MainViewModel(private val repository: LibraryRepository) : ViewModel() {
 
-    private val _libraryItems = MutableLiveData<List<LibraryItemType>>()
-    val libraryItems: LiveData<List<LibraryItemType>> = _libraryItems
+    private val _libraryItems = MutableStateFlow<List<LibraryItemType>>(emptyList())
+    val items: StateFlow<List<LibraryItemType>> = _libraryItems.asStateFlow()
 
-    private val _loading = MutableLiveData<Boolean>()
+    private val _loading = MutableStateFlow(false)
+    val loading: StateFlow<Boolean> = _loading.asStateFlow()
 
-    private val _error = MutableLiveData<String?>()
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error.asStateFlow()
+
+    private var pageSize = 30
+    private var currentPosition = 0
+
+
+    private val _state = MutableStateFlow<MainViewState>(MainViewState.Loading)
+    val state: StateFlow<MainViewState> = _state.asStateFlow()
 
     init {
         loadAllItems()
@@ -26,66 +37,85 @@ class MainViewModel(private val repository: LibraryRepository) : ViewModel() {
         loadAllItems()
     }
 
-    fun loadAllItems() {
-        _loading.value = true
-        try {
-            val items = mutableListOf<LibraryItemType>().apply {
-                addAll(repository.getAllBooks().map { book ->
-                    LibraryItemType.Book(
-                        id = book.id,
-                        title = book.title,
-                        isAvailable = book.isAvailable,
-                        author = book.author,
-                        pages = book.pages
-                    )
-                })
-                addAll(repository.getAllNewspapers().map { newspaper ->
-                    LibraryItemType.Newspaper(
-                        id = newspaper.id,
-                        title = newspaper.title,
-                        isAvailable = newspaper.isAvailable,
-                        issueNumber = newspaper.issueNumber,
-                        month = newspaper.month
-                    )
-                })
-                addAll(repository.getAllDisks().map { disk ->
-                    LibraryItemType.Disk(
-                        id = disk.id,
-                        title = disk.title,
-                        isAvailable = disk.isAvailable,
-                        type = disk.type
-                    )
-                })
-            }
-            _libraryItems.value = items
+    private fun loadAllItems() {
+        viewModelScope.launch {
+            _loading.value = true
             _error.value = null
-        } catch (e: Exception) {
-            _error.value = e.message
-        } finally {
-            _loading.value = false
+            _state.value = MainViewState.Loading
+
+            try {
+
+                val allItems = mutableListOf<LibraryItemType>()
+                val errorMessages = mutableListOf<String>()
+
+                repository.getAllBooks().fold(
+                    onSuccess = { books -> allItems.addAll(books) },
+                    onFailure = { errorMessages.add("books") }
+                )
+
+                repository.getAllNewspapers().fold(
+                    onSuccess = { newspapers -> allItems.addAll(newspapers) },
+                    onFailure = { errorMessages.add("newspapers") }
+                )
+
+                repository.getAllDisks().fold(
+                    onSuccess = { disks -> allItems.addAll(disks) },
+                    onFailure = { errorMessages.add("disk") }
+                )
+                _libraryItems.value = allItems
+
+                if (errorMessages.isNotEmpty()) {
+                    _error.value = "Error loading ${errorMessages.joinToString(", ")}"
+                }
+            } catch (e: Exception) {
+                _error.value = "Unexpected error: ${e.message}"
+                _libraryItems.value = emptyList()
+            } finally {
+                _loading.value = false
+            }
         }
     }
 
-    fun deleteItem(itemId: Int) {
-        _loading.value = true
-        try {
-            val success = repository.deleteItem(itemId)
-            if (success) {
-                _libraryItems.value = _libraryItems.value?.filter { it.id != itemId }
-            } else {
-                _error.value = "error deleting item"
+
+    fun deleteItem(itemId: Int): LibraryItemType? {
+        val item = _libraryItems.value.find { it.id == itemId }
+        if (item != null) {
+            viewModelScope.launch {
+                repository.deleteItem(itemId)
+                    .onSuccess {
+                        refreshItems()
+                    }
+                    .onFailure {
+                        _state.value = MainViewState.Error("Delete failed")
+                    }
             }
-        } catch (e: Exception) {
-            _error.value = e.message
-        } finally {
-            _loading.value = false
+            return item
+        }
+        return null
+    }
+
+    fun restoreItem(item: LibraryItemType) {
+        viewModelScope.launch {
+            try {
+                when (item) {
+                    is LibraryItemType.Book -> repository.addBook(item)
+                    is LibraryItemType.Newspaper -> repository.addNewspaper(item)
+                    is LibraryItemType.Disk -> repository.addDisk(item)
+                }
+                refreshItems()
+            } catch (e: Exception) {
+                _error.value = e.message
+            }
         }
     }
 
     companion object {
-        fun provideFactory(repository: LibraryRepository): ViewModelProvider.Factory = viewModelFactory {
-            initializer {
-                MainViewModel(repository)
+        fun provideFactory(repository: LibraryRepository): ViewModelProvider.Factory {
+            return object : ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                    return MainViewModel(repository) as T
+                }
             }
         }
     }

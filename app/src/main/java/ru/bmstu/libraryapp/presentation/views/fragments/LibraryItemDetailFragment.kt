@@ -8,9 +8,12 @@ import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.Toast
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import kotlinx.coroutines.launch
 import ru.bmstu.libraryapp.R
 import ru.bmstu.libraryapp.data.datasources.InMemoryDataSource
+import ru.bmstu.libraryapp.data.preferences.LibraryPreferences
 import ru.bmstu.libraryapp.data.repositories.LibraryRepositoryImpl
 import ru.bmstu.libraryapp.databinding.ActivityLibraryItemDetailBinding
 import ru.bmstu.libraryapp.databinding.ItemDetailFieldBinding
@@ -22,7 +25,10 @@ class LibraryItemDetailFragment : BaseFragment() {
     private var _binding: ActivityLibraryItemDetailBinding? = null
 
     private val repository: LibraryRepository by lazy {
-        LibraryRepositoryImpl(InMemoryDataSource.getInstance())
+        LibraryRepositoryImpl(
+            dataSource = InMemoryDataSource.getInstance(),
+            preferences = LibraryPreferences(requireContext()).prefs
+        )
     }
     private val binding get() = _binding!!
     
@@ -66,7 +72,9 @@ class LibraryItemDetailFragment : BaseFragment() {
                 }
                 .setNegativeButton(R.string.stay, null)
                 .setNeutralButton(R.string.save) { _, _ ->
-                    saveItem()
+                    viewLifecycleOwner.lifecycleScope.launch {
+                        saveItem()
+                    }
                 }
                 .show()
             return true
@@ -132,7 +140,9 @@ class LibraryItemDetailFragment : BaseFragment() {
             }
 
             saveButton.setOnClickListener {
-                saveItem()
+                viewLifecycleOwner.lifecycleScope.launch {
+                    saveItem()
+                }
             }
         }
     }
@@ -176,12 +186,16 @@ class LibraryItemDetailFragment : BaseFragment() {
             .fragments
             .firstOrNull { it is LibraryListFragment } as? LibraryListFragment
 
-//        libraryListFragment?.refreshList()
         libraryListFragment?.apply {
             refreshList()
             scrollToItem(updatedItem.id)
         }
-        navigateBack()
+        if (resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+            item = updatedItem
+            setupViews()
+        } else {
+            navigateBack()
+        }
     }
 
     private fun createUpdatedBook(originalItem: LibraryItemType.Book): LibraryItemType.Book {
@@ -212,10 +226,6 @@ class LibraryItemDetailFragment : BaseFragment() {
             type = DiskType.valueOf(specificFields[getString(R.string.tag_disk_type)]?.text.toString())
         )
     }
-
-//    private fun navigateBack() {
-//        activity?.supportFragmentManager?.popBackStack()
-//    }
 
     private fun navigateBack() {
         val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -269,6 +279,10 @@ class LibraryItemDetailFragment : BaseFragment() {
         binding.root.post {
             binding.root.scrollTo(0, scrollPosition)
         }
+    }
+
+    fun getCurrentItemId(): Int? {
+        return item?.id
     }
 
     companion object {

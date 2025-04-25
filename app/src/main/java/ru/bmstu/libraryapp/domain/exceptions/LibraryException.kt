@@ -1,4 +1,4 @@
-package ru.bmstu.libraryapp.presentation.utils
+package ru.bmstu.libraryapp.domain.exceptions
 
 sealed class LibraryException : Exception() {
     class LoadError(val itemType: String) : LibraryException()

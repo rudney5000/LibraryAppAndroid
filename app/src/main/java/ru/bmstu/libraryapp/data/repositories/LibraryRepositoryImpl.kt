@@ -8,7 +8,7 @@ import ru.bmstu.libraryapp.presentation.utils.filterByType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import ru.bmstu.libraryapp.presentation.utils.LibraryException
+import ru.bmstu.libraryapp.domain.exceptions.LibraryException
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.random.Random
 

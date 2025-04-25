@@ -6,54 +6,6 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
-    <!--    <com.facebook.shimmer.ShimmerFrameLayout-->
-    <!--    android:id="@+id/shimmerLayout"-->
-    <!--    android:layout_width="match_parent"-->
-    <!--    android:layout_height="match_parent"-->
-    <!--    android:visibility="gone">-->
-
-    <!--        <LinearLayout-->
-    <!--                android:layout_width="match_parent"-->
-    <!--                android:layout_height="wrap_content"-->
-    <!--                android:orientation="vertical">-->
-    <!--            <include layout="@layout/item_library_shimmer"/>-->
-    <!--            <include layout="@layout/item_library_shimmer"/>-->
-    <!--            <include layout="@layout/item_library_shimmer"/>-->
-    <!--            <include layout="@layout/item_library_shimmer"/>-->
-    <!--        </LinearLayout>-->
-    <!--    </com.facebook.shimmer.ShimmerFrameLayout>-->
-
-    <!--    <LinearLayout-->
-    <!--        android:id="@+id/emptyState"-->
-    <!--        android:layout_width="match_parent"-->
-    <!--        android:layout_height="match_parent"-->
-    <!--        android:visibility="gone"-->
-    <!--        android:gravity="center"-->
-    <!--        android:orientation="vertical"-->
-    <!--        android:padding="32dp"-->
-    <!--        tools:ignore="UseCompoundDrawables">-->
-
-    <!--        <ImageView-->
-    <!--            android:layout_width="64dp"-->
-    <!--            android:layout_height="64dp"-->
-    <!--            android:src="@drawable/ic_empty_state"-->
-    <!--            android:contentDescription="@string/empty_state_desc"/>-->
-
-    <!--        <TextView-->
-    <!--            android:layout_width="wrap_content"-->
-    <!--            android:layout_height="wrap_content"-->
-    <!--            android:layout_marginTop="16dp"-->
-    <!--            android:text="@string/no_items_found"-->
-    <!--            android:textSize="18sp"-->
-    <!--            android:textColor="?android:attr/textColorSecondary"/>-->
-    <!--    </LinearLayout>-->
-
-    <!--    <androidx.recyclerview.widget.RecyclerView-->
-    <!--        android:id="@+id/recyclerView"-->
-    <!--        android:layout_width="match_parent"-->
-    <!--        android:layout_height="match_parent"-->
-    <!--        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"/>-->
-
     <FrameLayout
             android:id="@+id/contentContainer"
             android:layout_width="match_parent"
@@ -67,7 +19,6 @@
                 tools:visibility="visible"
                 tools:listitem="@layout/item_library"/>
 
-        <!-- Loading State -->
         <com.facebook.shimmer.ShimmerFrameLayout
                 android:id="@+id/loadingState"
                 android:layout_width="match_parent"

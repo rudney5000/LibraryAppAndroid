@@ -1,5 +1,4 @@
 package ru.bmstu.libraryapp.data.repositories
-import android.content.SharedPreferences
 import ru.bmstu.libraryapp.data.datasources.LocalDataSource
 import ru.bmstu.libraryapp.domain.entities.BaseLibraryItem
 import ru.bmstu.libraryapp.domain.entities.LibraryItem
@@ -9,7 +8,7 @@ import ru.bmstu.libraryapp.presentation.utils.filterByType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import ru.bmstu.libraryapp.presentation.utils.LibraryException
+import ru.bmstu.libraryapp.domain.exceptions.LibraryException
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.random.Random
 
@@ -18,18 +17,14 @@ import kotlin.random.Random
  * Работает с источником данных для получения и обновления элементов.
  * @param dataSource Источник данных
  */
-class LibraryRepositoryImpl(
-    private val dataSource: LocalDataSource,
-    private val preferences: SharedPreferences
-) : LibraryRepository {
+class LibraryRepositoryImpl(private val dataSource: LocalDataSource) : LibraryRepository {
     /**
      * Получение всех книг.
      * @return Список всех книг
      */
     override suspend fun getAllBooks(): Result<List<LibraryItemType.Book>> = withContext(Dispatchers.IO) {
-        val sortBy = preferences.getString(KEY_SORT_ORDER, DEFAULT_SORT_ORDER) ?: DEFAULT_SORT_ORDER
         handleRequest("books") {
-            dataSource.getAllItems(sortBy = sortBy).filterByType<LibraryItemType.Book>()
+            dataSource.getAllItems().filterByType<LibraryItemType.Book>()
         }
     }
 
@@ -38,9 +33,8 @@ class LibraryRepositoryImpl(
      * @return Список всех газет
      */
     override suspend fun getAllNewspapers(): Result<List<LibraryItemType.Newspaper>> = withContext(Dispatchers.IO) {
-        val sortBy = preferences.getString(KEY_SORT_ORDER, DEFAULT_SORT_ORDER) ?: DEFAULT_SORT_ORDER
         handleRequest("newspapers") {
-            dataSource.getAllItems(sortBy = sortBy).filterByType<LibraryItemType.Newspaper>()
+            dataSource.getAllItems().filterByType<LibraryItemType.Newspaper>()
         }
     }
 
@@ -50,18 +44,9 @@ class LibraryRepositoryImpl(
      * @return Список всех дисков
      */
     override suspend fun getAllDisks(): Result<List<LibraryItemType.Disk>> = withContext(Dispatchers.IO) {
-        val sortBy = preferences.getString(KEY_SORT_ORDER, DEFAULT_SORT_ORDER) ?: DEFAULT_SORT_ORDER
         handleRequest("disks") {
-            dataSource.getAllItems(sortBy = sortBy).filterByType<LibraryItemType.Disk>()
+            dataSource.getAllItems().filterByType<LibraryItemType.Disk>()
         }
-    }
-
-    override fun setSortOrder(sortOrder: String) {
-        preferences.edit().putString(KEY_SORT_ORDER, sortOrder).apply()
-    }
-
-    override fun getSortOrder(): String {
-        return preferences.getString(KEY_SORT_ORDER, DEFAULT_SORT_ORDER) ?: DEFAULT_SORT_ORDER
     }
 
     /**
@@ -186,10 +171,5 @@ class LibraryRepositoryImpl(
         } catch (e: Exception) {
             Result.failure(LibraryException.SaveError(operation))
         }
-    }
-
-    companion object {
-        private const val KEY_SORT_ORDER = "sort_order"
-        private const val DEFAULT_SORT_ORDER = "title"
     }
 }

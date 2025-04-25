@@ -23,7 +23,6 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.launch
 import ru.bmstu.libraryapp.data.datasources.InMemoryDataSource
-import ru.bmstu.libraryapp.data.preferences.LibraryPreferences
 import ru.bmstu.libraryapp.data.repositories.LibraryRepositoryImpl
 import ru.bmstu.libraryapp.domain.entities.DetailMode
 import ru.bmstu.libraryapp.domain.entities.LibraryItemType
@@ -33,11 +32,10 @@ class LibraryListFragment : BaseFragment() {
     private val binding get() = _binding!!
     private var lastCreatedItemId: Int? = null
     private var lastDeletedItem: LibraryItemType? = null
+    
     private lateinit var adapter: LibraryItemAdapter
     private val repository: LibraryRepository by lazy {
-        LibraryRepositoryImpl(
-            dataSource = InMemoryDataSource.getInstance(),
-            preferences = LibraryPreferences(requireContext()).prefs)
+        LibraryRepositoryImpl(InMemoryDataSource.getInstance())
     }
 
     private val viewModel: MainViewModel by viewModels {

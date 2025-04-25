@@ -22,9 +22,6 @@ class MainViewModel(private val repository: LibraryRepository) : ViewModel() {
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
-    private var pageSize = 30
-    private var currentPosition = 0
-
 
     private val _state = MutableStateFlow<MainViewState>(MainViewState.Loading)
     val state: StateFlow<MainViewState> = _state.asStateFlow()

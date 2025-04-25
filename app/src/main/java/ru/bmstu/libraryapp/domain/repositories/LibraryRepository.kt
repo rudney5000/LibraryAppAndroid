@@ -46,6 +46,4 @@ interface LibraryRepository {
     suspend fun updateBook(book: LibraryItemType.Book): Result<Unit>
     suspend fun updateNewspaper(newspaper: LibraryItemType.Newspaper): Result<Unit>
     suspend fun updateDisk(disk: LibraryItemType.Disk): Result<Unit>
-    fun setSortOrder(sortOrder: String)
-    fun getSortOrder(): String
 }

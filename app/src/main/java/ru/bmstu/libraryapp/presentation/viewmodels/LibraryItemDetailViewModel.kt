@@ -11,7 +11,7 @@ import ru.bmstu.libraryapp.domain.entities.DetailMode
 import ru.bmstu.libraryapp.domain.entities.LibraryItem
 import ru.bmstu.libraryapp.domain.entities.LibraryItemType
 import ru.bmstu.libraryapp.domain.repositories.LibraryRepository
-import ru.bmstu.libraryapp.presentation.utils.LibraryException
+import ru.bmstu.libraryapp.domain.exceptions.LibraryException
 import kotlin.coroutines.cancellation.CancellationException
 
 class LibraryItemDetailViewModel(
@@ -58,6 +58,7 @@ class LibraryItemDetailViewModel(
                     throw result.exceptionOrNull() ?: LibraryException.LoadError("Unknown erro")
                 }
             } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _error.postValue(e.message)
                 _saveSuccess.postValue(false)

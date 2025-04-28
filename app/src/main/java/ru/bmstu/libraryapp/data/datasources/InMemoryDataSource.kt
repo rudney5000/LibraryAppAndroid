@@ -27,19 +27,23 @@ class InMemoryDataSource private constructor() : LocalDataSource {
         LibraryItemType.Disk(3004, "Классическая музыка", true, DiskType.CD)
     )
 
-    override fun getAllItems(): List<LibraryItemType> {
+    override suspend fun getAllItems(
+        sortBy: String,
+        limit: Int,
+        offset: Int
+    ): List<LibraryItemType> {
         return items.toList()
     }
 
-    override fun deleteItem(id: Int): Boolean {
-        val index = items.indexOfFirst { it.id == id }
+    override suspend fun deleteItem(itemId: Int): Boolean {
+        val index = items.indexOfFirst { it.id == itemId }
         return if (index != -1) {
             items.removeAt(index)
             true
         } else false
     }
 
-    override fun addItem(item: LibraryItem): Boolean {
+    override suspend fun addItem(item: LibraryItem): Boolean {
         return when (item) {
             is LibraryItemType -> {
                 val newId = generateNewId()
@@ -54,7 +58,7 @@ class InMemoryDataSource private constructor() : LocalDataSource {
         }
     }
 
-    override fun updateItem(item: LibraryItem): Boolean {
+    override suspend fun updateItem(item: LibraryItem): Boolean {
         return when (item) {
             is LibraryItemType -> {
                 val index = items.indexOfFirst { it.id == item.id }
@@ -65,6 +69,10 @@ class InMemoryDataSource private constructor() : LocalDataSource {
             }
             else -> false
         }
+    }
+
+    override suspend fun getItemCount(): Int {
+        return items.size
     }
 
     private fun generateNewId(): Int {

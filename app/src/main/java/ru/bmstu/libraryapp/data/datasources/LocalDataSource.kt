@@ -5,18 +5,6 @@ import ru.bmstu.libraryapp.domain.entities.LibraryItemType
 /**
  * Интерфейс источника данных для элементов библиотеки.
  */
-//interface LocalDataSource {
-//    /**
-//     * Получение всех элементов библиотеки из источника данных.
-//     * @return Список всех элементов библиотеки
-//     */
-//    fun getAllItems(): List<LibraryItem>
-//
-//    fun deleteItem(itemId: Int): Boolean
-//
-//    fun addItem(item: LibraryItem): Boolean
-//    fun updateItem(item: LibraryItem): Boolean
-//}
 interface LocalDataSource {
     suspend fun getAllItems(
         sortBy: String = "title",

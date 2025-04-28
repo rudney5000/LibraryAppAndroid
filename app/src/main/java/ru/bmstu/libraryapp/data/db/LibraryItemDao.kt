@@ -11,6 +11,9 @@ interface LibraryItemDao {
            "LIMIT :limit OFFSET :offset")
     suspend fun getItems(sortBy: String, limit: Int, offset: Int): List<LibraryItemEntity>
 
+    @Query("DELETE FROM library_items WHERE id = :itemId")
+    suspend fun deleteById(itemId: Int): Int
+
     @Query("SELECT COUNT(*) FROM library_items")
     suspend fun getItemCount(): Int
 

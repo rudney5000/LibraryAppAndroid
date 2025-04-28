@@ -1,4 +1,5 @@
 package ru.bmstu.libraryapp.data.repositories
+import android.util.Log
 import ru.bmstu.libraryapp.data.datasources.LocalDataSource
 import ru.bmstu.libraryapp.domain.entities.BaseLibraryItem
 import ru.bmstu.libraryapp.domain.entities.LibraryItem
@@ -8,8 +9,12 @@ import ru.bmstu.libraryapp.presentation.utils.filterByType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import ru.bmstu.libraryapp.data.pagination.PaginationHelper
+import ru.bmstu.libraryapp.data.preferences.LibraryPreferences
 import ru.bmstu.libraryapp.domain.exceptions.LibraryException
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.math.max
+import kotlin.math.min
 import kotlin.random.Random
 
 /**
@@ -17,14 +22,24 @@ import kotlin.random.Random
  * Работает с источником данных для получения и обновления элементов.
  * @param dataSource Источник данных
  */
-class LibraryRepositoryImpl(private val dataSource: LocalDataSource) : LibraryRepository {
+class LibraryRepositoryImpl(
+    private val dataSource: LocalDataSource,
+    preferences: LibraryPreferences
+) : LibraryRepository {
+
+    private val bookPagination = PaginationHelper(dataSource, preferences, LibraryItemType.Book::class,  "books")
+    private val newspaperPagination = PaginationHelper(dataSource, preferences, LibraryItemType.Newspaper::class, "newspapers")
+    private val diskPagination = PaginationHelper(dataSource, preferences, LibraryItemType.Disk::class, "disks")
+
     /**
      * Получение всех книг.
+     *
      * @return Список всех книг
      */
+
     override suspend fun getAllBooks(): Result<List<LibraryItemType.Book>> = withContext(Dispatchers.IO) {
-        handleRequest("books") {
-            dataSource.getAllItems().filterByType<LibraryItemType.Book>()
+        bookPagination.handlePaginationRequest(isInitialLoad = true) {
+            bookPagination.loadInitial()
         }
     }
 
@@ -33,19 +48,18 @@ class LibraryRepositoryImpl(private val dataSource: LocalDataSource) : LibraryRe
      * @return Список всех газет
      */
     override suspend fun getAllNewspapers(): Result<List<LibraryItemType.Newspaper>> = withContext(Dispatchers.IO) {
-        handleRequest("newspapers") {
-            dataSource.getAllItems().filterByType<LibraryItemType.Newspaper>()
+        newspaperPagination.handlePaginationRequest(isInitialLoad = true) {
+            newspaperPagination.loadInitial()
         }
     }
-
 
     /**
      * Получение всех дисков.
      * @return Список всех дисков
      */
     override suspend fun getAllDisks(): Result<List<LibraryItemType.Disk>> = withContext(Dispatchers.IO) {
-        handleRequest("disks") {
-            dataSource.getAllItems().filterByType<LibraryItemType.Disk>()
+        diskPagination.handlePaginationRequest(isInitialLoad = true) {
+            diskPagination.loadInitial()
         }
     }
 
@@ -124,32 +138,48 @@ class LibraryRepositoryImpl(private val dataSource: LocalDataSource) : LibraryRe
         }
     }
 
+    override suspend fun loadMoreBooks(forward: Boolean): Result<List<LibraryItemType.Book>> = withContext(Dispatchers.IO) {
+        if (bookPagination.isLoading) return@withContext Result.success(emptyList())
 
-    private suspend fun simulateDelay() {
-        delay(Random.nextLong(100, 300))
-    }
-
-    private fun shouldThrowError(): Boolean {
-        return Random.nextFloat() < 0.1f
-    }
-
-    private suspend fun <T> handleRequest(
-        itemType: String,
-        block: suspend () -> T
-    ): Result<T> {
-        return try {
-            simulateDelay()
-            if (shouldThrowError()) {
-                Result.failure(LibraryException.LoadError(itemType))
-            } else {
-                Result.success(block())
+        bookPagination.isLoading = true
+        try {
+            bookPagination.handlePaginationRequest(isInitialLoad = false) {
+                bookPagination.loadMore(forward)
             }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Result.failure(LibraryException.LoadError(itemType))
+        } finally {
+            bookPagination.isLoading = false
         }
     }
+
+    override suspend fun loadMoreNewspapers(forward: Boolean): Result<List<LibraryItemType.Newspaper>> = withContext(Dispatchers.IO) {
+        if (bookPagination.isLoading) return@withContext Result.success(emptyList())
+
+        newspaperPagination.isLoading = true
+        try {
+            newspaperPagination.handlePaginationRequest(isInitialLoad = false) {
+                newspaperPagination.loadMore(forward)
+            }
+        } finally {
+            newspaperPagination.isLoading = false
+        }
+    }
+
+    override suspend fun loadMoreDisks(forward: Boolean): Result<List<LibraryItemType.Disk>> = withContext(Dispatchers.IO) {
+        if (bookPagination.isLoading) return@withContext Result.success(emptyList())
+
+        diskPagination.isLoading = true
+        try {
+            diskPagination.handlePaginationRequest(isInitialLoad = false) {
+                diskPagination.loadMore(forward)
+            }
+        } finally {
+            diskPagination.isLoading = false
+        }
+    }
+
+    private suspend fun simulateDelay() = delay(Random.nextLong(100, 300))
+
+    private fun shouldThrowError(): Boolean = Random.nextFloat() < 0.1f
 
     private suspend fun handleMutation(
         operation: String,

@@ -22,7 +22,9 @@ import ru.bmstu.libraryapp.presentation.views.adapters.LibraryItemAdapter
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.launch
-import ru.bmstu.libraryapp.data.datasources.InMemoryDataSource
+import ru.bmstu.libraryapp.data.datasources.RoomDataSource
+import ru.bmstu.libraryapp.data.db.LibraryDatabase
+import ru.bmstu.libraryapp.data.preferences.LibraryPreferences
 import ru.bmstu.libraryapp.data.repositories.LibraryRepositoryImpl
 import ru.bmstu.libraryapp.domain.entities.DetailMode
 import ru.bmstu.libraryapp.domain.entities.LibraryItemType
@@ -35,7 +37,10 @@ class LibraryListFragment : BaseFragment() {
     
     private lateinit var adapter: LibraryItemAdapter
     private val repository: LibraryRepository by lazy {
-        LibraryRepositoryImpl(InMemoryDataSource.getInstance())
+        LibraryRepositoryImpl(
+            RoomDataSource(LibraryDatabase.getInstance(requireContext())),
+            LibraryPreferences(requireContext())
+            )
     }
 
     private val viewModel: MainViewModel by viewModels {
@@ -65,8 +70,6 @@ class LibraryListFragment : BaseFragment() {
     }
 
     private fun observeViewModel() {
-        viewModel.refreshItems()
-
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
@@ -82,12 +85,6 @@ class LibraryListFragment : BaseFragment() {
                     viewModel.loading.collect { isLoading ->
                         binding.loadingState.visibility = if (isLoading) View.VISIBLE else View.GONE
                         binding.recyclerView.visibility = if (isLoading) View.GONE else View.VISIBLE
-
-                        if (isLoading) {
-                            binding.loadingState.startShimmer()
-                        } else {
-                            binding.loadingState.stopShimmer()
-                        }
                     }
                 }
 
@@ -95,9 +92,7 @@ class LibraryListFragment : BaseFragment() {
                     viewModel.error.collect { errorMessage ->
                         errorMessage?.let {
                             Snackbar.make(binding.root, it, Snackbar.LENGTH_LONG)
-                                .setAction("Try again") {
-                                    viewModel.refreshItems()
-                                }
+                                .setAction("Retry") { viewModel.refreshItems() }
                                 .show()
                         }
                     }
@@ -117,6 +112,27 @@ class LibraryListFragment : BaseFragment() {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = this@LibraryListFragment.adapter
             setHasFixedSize(true)
+
+            addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                    super.onScrolled(recyclerView, dx, dy)
+
+                    val layoutManager = recyclerView.layoutManager as LinearLayoutManager
+                    val totalItemCount = layoutManager.itemCount
+                    val firstVisibleItem = layoutManager.findFirstVisibleItemPosition()
+                    val lastVisibleItem = layoutManager.findLastVisibleItemPosition()
+
+                    if (!viewModel.loading.value && !viewModel.loadingMore.value &&
+                        firstVisibleItem <= 2) {
+                        viewModel.loadMoreItems(forward = false)
+                    }
+
+                    if (!viewModel.loading.value && !viewModel.loadingMore.value &&
+                        totalItemCount <= lastVisibleItem + 2) {
+                        viewModel.loadMoreItems(forward = true)
+                    }
+                }
+            })
         }
     }
 

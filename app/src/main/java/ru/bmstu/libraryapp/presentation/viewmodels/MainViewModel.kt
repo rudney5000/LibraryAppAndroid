@@ -19,6 +19,9 @@ class MainViewModel(private val repository: LibraryRepository) : ViewModel() {
     private val _loading = MutableStateFlow(false)
     val loading: StateFlow<Boolean> = _loading.asStateFlow()
 
+    private val _loadingMore = MutableStateFlow(false)
+    val loadingMore: StateFlow<Boolean> = _loadingMore.asStateFlow()
+
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
@@ -69,6 +72,50 @@ class MainViewModel(private val repository: LibraryRepository) : ViewModel() {
                 _libraryItems.value = emptyList()
             } finally {
                 _loading.value = false
+            }
+        }
+    }
+
+    fun loadMoreItems(forward: Boolean = true) {
+        if (_loadingMore.value) return
+
+        viewModelScope.launch {
+            _loadingMore.value = true
+            try {
+                val newItems = mutableListOf<LibraryItemType>()
+                val errorMessages = mutableListOf<String>()
+
+                repository.loadMoreBooks(forward).fold(
+                    onSuccess = { books -> newItems.addAll(books) },
+                    onFailure = { errorMessages.add("books") }
+                )
+
+                repository.loadMoreNewspapers(forward).fold(
+                    onSuccess = { newspapers -> newItems.addAll(newspapers) },
+                    onFailure = { errorMessages.add("newspapers") }
+                )
+
+                repository.loadMoreDisks(forward).fold(
+                    onSuccess = { disks -> newItems.addAll(disks) },
+                    onFailure = { errorMessages.add("disks") }
+                )
+
+                if (newItems.isNotEmpty()) {
+                    val currentItems = _libraryItems.value.toMutableList()
+                    if (forward) {
+                        currentItems.addAll(newItems)
+                    } else {
+                        currentItems.addAll(0, newItems)
+                    }
+                    _libraryItems.value = currentItems
+                }
+                if (errorMessages.isNotEmpty()) {
+                    _error.value = "Error loading more ${errorMessages.joinToString(", ")}"
+                }
+            } catch (e: Exception) {
+                _error.value = "Failed to load more items: ${e.message}"
+            } finally {
+                _loadingMore.value = false
             }
         }
     }

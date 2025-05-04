@@ -6,11 +6,23 @@ import ru.bmstu.libraryapp.domain.entities.LibraryItemType
  * Интерфейс источника данных для элементов библиотеки.
  */
 interface LocalDataSource {
+
+    suspend fun getItemsPage(
+        page: Int,
+        pageSize: Int,
+        sortBy: String = "title"
+    ): List<LibraryItemType>
+
+    @Deprecated("Use getItemsPage instead")
     suspend fun getAllItems(
         sortBy: String = "title",
         limit: Int = Int.MAX_VALUE,
         offset: Int = 0
-    ): List<LibraryItemType>
+    ): List<LibraryItemType> {
+        val pageSize = limit
+        val page = offset / limit
+        return getItemsPage(page, pageSize, sortBy)
+    }
 
     suspend fun deleteItem(itemId: Int): Boolean
 

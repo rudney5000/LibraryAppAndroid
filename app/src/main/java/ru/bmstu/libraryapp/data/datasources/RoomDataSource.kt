@@ -4,8 +4,21 @@ import ru.bmstu.libraryapp.data.db.LibraryDatabase
 import ru.bmstu.libraryapp.data.db.entities.LibraryItemEntity
 import ru.bmstu.libraryapp.domain.entities.LibraryItem
 import ru.bmstu.libraryapp.domain.entities.LibraryItemType
+import kotlin.coroutines.cancellation.CancellationException
 
 class RoomDataSource(private val database: LibraryDatabase) : LocalDataSource {
+    override suspend fun getItemsPage(
+        page: Int,
+        pageSize: Int,
+        sortBy: String
+    ): List<LibraryItemType> {
+        val offset = page * pageSize
+        return database.libraryItemDao()
+            .getItems(sortBy, pageSize, offset)
+            .map { it.toDomain() }
+    }
+
+    @Deprecated("Use getItemsPage instead")
     override suspend fun getAllItems(
         sortBy: String,
         limit: Int,
@@ -20,7 +33,7 @@ class RoomDataSource(private val database: LibraryDatabase) : LocalDataSource {
         return try {
             val result = database.libraryItemDao().deleteById(id)
             result > 0
-        } catch (e: Exception) {
+        } catch (e: CancellationException) {
             false
         }
     }
@@ -35,7 +48,7 @@ class RoomDataSource(private val database: LibraryDatabase) : LocalDataSource {
                 }
                 else -> false
             }
-        } catch (e: Exception) {
+        } catch (e: CancellationException) {
             false
         }
     }
@@ -50,7 +63,7 @@ class RoomDataSource(private val database: LibraryDatabase) : LocalDataSource {
                 }
                 else -> false
             }
-        } catch (e: Exception) {
+        } catch (e: CancellationException) {
             false
         }
     }

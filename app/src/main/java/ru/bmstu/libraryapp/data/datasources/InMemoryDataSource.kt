@@ -25,14 +25,44 @@ class InMemoryDataSource private constructor() : LocalDataSource {
         LibraryItemType.Disk(3002, "Лучшие песни 2023", false, DiskType.CD),
         LibraryItemType.Disk(3003, "Звездные войны: Эпизод IX", true, DiskType.DVD),
         LibraryItemType.Disk(3004, "Классическая музыка", true, DiskType.CD)
-    )
+    ).apply {
+        for (i in 1..50) {
+            add(LibraryItemType.Book(1000 + i, "Книга $i", true, 200 + i, "Автор $i"))
+            add(LibraryItemType.Newspaper(2000 + i, "Газета $i", true, i, Month.values()[i % 12]))
+            add(LibraryItemType.Disk(3000 + i, "Диск $i", true, DiskType.values()[i % 3]))
+        }
+    }
 
+    override suspend fun getItemsPage(
+        page: Int,
+        pageSize: Int,
+        sortBy: String
+    ): List<LibraryItemType> {
+        val sortedItems = when (sortBy.lowercase()) {
+            "title" -> items.sortedBy { it.title }
+            "createdat" -> items.sortedByDescending {
+                when(it) {
+                    is LibraryItemType.Book -> it.id
+                    is LibraryItemType.Newspaper -> it.id
+                    is LibraryItemType.Disk -> it.id
+                }
+            }
+            else -> items.sortedBy { it.title }
+        }
+        val offset = page * pageSize
+        if (offset >= sortedItems.size) {
+            return emptyList()
+        }
+        return sortedItems.subList(offset, minOf(offset + pageSize, sortedItems.size))
+    }
+
+    @Deprecated("Use getItemsPage instead")
     override suspend fun getAllItems(
         sortBy: String,
         limit: Int,
         offset: Int
     ): List<LibraryItemType> {
-        return items.toList()
+        return getItemsPage(offset / limit, limit, sortBy)
     }
 
     override suspend fun deleteItem(itemId: Int): Boolean {

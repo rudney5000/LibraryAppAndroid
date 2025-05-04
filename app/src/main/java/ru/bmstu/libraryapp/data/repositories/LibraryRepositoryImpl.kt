@@ -5,16 +5,15 @@ import ru.bmstu.libraryapp.domain.entities.BaseLibraryItem
 import ru.bmstu.libraryapp.domain.entities.LibraryItem
 import ru.bmstu.libraryapp.domain.entities.LibraryItemType
 import ru.bmstu.libraryapp.domain.repositories.LibraryRepository
-import ru.bmstu.libraryapp.presentation.utils.filterByType
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import ru.bmstu.libraryapp.data.pagination.PaginationHelper
 import ru.bmstu.libraryapp.data.preferences.LibraryPreferences
 import ru.bmstu.libraryapp.domain.exceptions.LibraryException
 import kotlin.coroutines.cancellation.CancellationException
-import kotlin.math.max
-import kotlin.math.min
 import kotlin.random.Random
 
 /**
@@ -33,13 +32,11 @@ class LibraryRepositoryImpl(
 
     /**
      * Получение всех книг.
-     *
      * @return Список всех книг
      */
-
     override suspend fun getAllBooks(): Result<List<LibraryItemType.Book>> = withContext(Dispatchers.IO) {
         bookPagination.handlePaginationRequest(isInitialLoad = true) {
-            bookPagination.loadInitial()
+            bookPagination.loadInitial().items
         }
     }
 
@@ -49,7 +46,7 @@ class LibraryRepositoryImpl(
      */
     override suspend fun getAllNewspapers(): Result<List<LibraryItemType.Newspaper>> = withContext(Dispatchers.IO) {
         newspaperPagination.handlePaginationRequest(isInitialLoad = true) {
-            newspaperPagination.loadInitial()
+            newspaperPagination.loadInitial().items
         }
     }
 
@@ -59,7 +56,7 @@ class LibraryRepositoryImpl(
      */
     override suspend fun getAllDisks(): Result<List<LibraryItemType.Disk>> = withContext(Dispatchers.IO) {
         diskPagination.handlePaginationRequest(isInitialLoad = true) {
-            diskPagination.loadInitial()
+            diskPagination.loadInitial().items
         }
     }
 
@@ -138,45 +135,65 @@ class LibraryRepositoryImpl(
         }
     }
 
-    override suspend fun loadMoreBooks(forward: Boolean): Result<List<LibraryItemType.Book>> = withContext(Dispatchers.IO) {
-        if (bookPagination.isLoading) return@withContext Result.success(emptyList())
-
-        bookPagination.isLoading = true
+    override suspend fun loadMoreItems(forward: Boolean): Result<List<LibraryItemType>> = withContext(Dispatchers.IO) {
         try {
-            bookPagination.handlePaginationRequest(isInitialLoad = false) {
-                bookPagination.loadMore(forward)
+            val booksDeferred = async {
+                bookPagination.loadMore(forward).items
             }
-        } finally {
-            bookPagination.isLoading = false
+            val newspapersDeferred = async {
+                newspaperPagination.loadMore(forward).items
+            }
+            val disksDeferred = async {
+                diskPagination.loadMore(forward).items
+            }
+
+            val allItems = listOf(booksDeferred, newspapersDeferred, disksDeferred)
+                .awaitAll()
+                .flatten()
+                .sortedBy { it.id }
+
+            Result.success(allItems)
+        } catch (e: Exception) {
+            Result.failure(LibraryException.LoadError("Failed to load more items: ${e.message}"))
         }
     }
 
-    override suspend fun loadMoreNewspapers(forward: Boolean): Result<List<LibraryItemType.Newspaper>> = withContext(Dispatchers.IO) {
-        if (bookPagination.isLoading) return@withContext Result.success(emptyList())
-
-        newspaperPagination.isLoading = true
+    override suspend fun getAllItems(): Result<List<LibraryItemType>> = withContext(Dispatchers.IO) {
         try {
-            newspaperPagination.handlePaginationRequest(isInitialLoad = false) {
-                newspaperPagination.loadMore(forward)
+            val booksDeferred = async { getAllBooks() }
+            val newspapersDeferred = async { getAllNewspapers() }
+            val disksDeferred = async { getAllDisks() }
+
+            val allResults = listOf(
+                booksDeferred.await(),
+                newspapersDeferred.await(),
+                disksDeferred.await()
+            )
+
+            val errorMessages = allResults
+                .filter { it.isFailure }
+                .mapNotNull { (it.exceptionOrNull() as? LibraryException)?.message }
+
+            val allItems = allResults.flatMap { result ->
+                result.getOrElse { emptyList() }
             }
-        } finally {
-            newspaperPagination.isLoading = false
+
+            if (errorMessages.isNotEmpty()) {
+                if (allItems.isEmpty()) {
+                    Result.failure(LibraryException.LoadError(errorMessages.joinToString(", ")))
+                } else {
+                    Log.w("LibraryRepository", "Partial data loaded with errors: ${errorMessages.joinToString()}")
+                    Result.success(allItems)
+                }
+            } else {
+                Result.success(allItems)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(LibraryException.LoadError("Failed to load all items: ${e.message}"))
         }
     }
-
-    override suspend fun loadMoreDisks(forward: Boolean): Result<List<LibraryItemType.Disk>> = withContext(Dispatchers.IO) {
-        if (bookPagination.isLoading) return@withContext Result.success(emptyList())
-
-        diskPagination.isLoading = true
-        try {
-            diskPagination.handlePaginationRequest(isInitialLoad = false) {
-                diskPagination.loadMore(forward)
-            }
-        } finally {
-            diskPagination.isLoading = false
-        }
-    }
-
     private suspend fun simulateDelay() = delay(Random.nextLong(100, 300))
 
     private fun shouldThrowError(): Boolean = Random.nextFloat() < 0.1f

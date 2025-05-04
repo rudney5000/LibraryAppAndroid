@@ -21,14 +21,16 @@ abstract class LibraryDatabase : RoomDatabase() {
 
         fun getInstance(context: Context): LibraryDatabase {
             return INSTANCE ?: synchronized(this) {
-                val instance = Room.databaseBuilder(
-                    context.applicationContext,
-                    LibraryDatabase::class.java,
-                    "library_database"
-                ).build()
-                INSTANCE = instance
-                instance
+                INSTANCE ?: buildDatabase(context.applicationContext).also { INSTANCE = it }
             }
+        }
+
+        private fun buildDatabase(context: Context): LibraryDatabase {
+            return Room.databaseBuilder(
+                context.applicationContext,
+                LibraryDatabase::class.java,
+                "library_database"
+            ).build()
         }
     }
 }

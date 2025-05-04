@@ -46,8 +46,6 @@ interface LibraryRepository {
     suspend fun updateBook(book: LibraryItemType.Book): Result<Unit>
     suspend fun updateNewspaper(newspaper: LibraryItemType.Newspaper): Result<Unit>
     suspend fun updateDisk(disk: LibraryItemType.Disk): Result<Unit>
-
-    suspend fun loadMoreBooks(forward: Boolean): Result<List<LibraryItemType.Book>>
-    suspend fun loadMoreNewspapers(forward: Boolean): Result<List<LibraryItemType.Newspaper>>
-    suspend fun loadMoreDisks(forward: Boolean): Result<List<LibraryItemType.Disk>>
+    suspend fun loadMoreItems(forward: Boolean): Result<List<LibraryItemType>>
+    suspend fun getAllItems(): Result<List<LibraryItemType>>
 }

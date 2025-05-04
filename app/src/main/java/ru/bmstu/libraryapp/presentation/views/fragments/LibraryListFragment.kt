@@ -42,9 +42,10 @@ class LibraryListFragment : BaseFragment() {
             LibraryPreferences(requireContext())
             )
     }
+    private val preferences by lazy { LibraryPreferences(requireContext()) }
 
     private val viewModel: MainViewModel by viewModels {
-        MainViewModel.provideFactory(repository)
+        MainViewModel.provideFactory(repository, preferences)
     }
 
     override fun onCreateView(

@@ -1,7 +1,7 @@
 [versions]
 agp = "8.8.2"
-kotlin = "2.1.10"
-coreKtx = "1.16.0"
+kotlin = "2.0.0"
+coreKtx = "1.15.0"
 junit = "4.13.2"
 junitVersion = "1.2.1"
 espressoCore = "3.6.1"
@@ -14,7 +14,7 @@ room = "2.7.1"
 androidxFragment = "1.8.6"
 kotlinxCoroutines = "1.7.3"
 facebookShimmer = "0.5.0"
-ksp = "2.1.20-1.0.32"
+ksp = "2.0.0-1.0.21"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -38,6 +38,7 @@ androidx-room-compiler = { group = "androidx.room", name = "room-compiler", vers
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-parcelize = { id = "org.jetbrains.kotlin.plugin.parcelize" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 
 [bundles]
 coroutines = ["kotlinx-coroutines-android", "kotlinx-coroutines-core"]

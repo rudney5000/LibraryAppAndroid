@@ -5,10 +5,15 @@ import ru.bmstu.libraryapp.data.db.entities.LibraryItemEntity
 
 @Dao
 interface LibraryItemDao {
-    @Query("SELECT * FROM library_items ORDER BY " +
-           "CASE WHEN :sortBy = 'title' THEN title " +
-           "ELSE createdAt END " +
-           "LIMIT :limit OFFSET :offset")
+    @Query("""
+        SELECT * FROM library_items 
+        ORDER BY 
+            CASE WHEN :sortBy = 'title' THEN title 
+                 ELSE createdAt 
+            END 
+        LIMIT :limit 
+        OFFSET :offset
+    """)
     suspend fun getItems(sortBy: String, limit: Int, offset: Int): List<LibraryItemEntity>
 
     @Query("DELETE FROM library_items WHERE id = :itemId")

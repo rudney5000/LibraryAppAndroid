@@ -1,13 +1,17 @@
 package ru.bmstu.libraryapp.data.repositories
+import android.util.Log
 import ru.bmstu.libraryapp.data.datasources.LocalDataSource
 import ru.bmstu.libraryapp.domain.entities.BaseLibraryItem
 import ru.bmstu.libraryapp.domain.entities.LibraryItem
 import ru.bmstu.libraryapp.domain.entities.LibraryItemType
 import ru.bmstu.libraryapp.domain.repositories.LibraryRepository
-import ru.bmstu.libraryapp.presentation.utils.filterByType
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import ru.bmstu.libraryapp.data.pagination.PaginationHelper
+import ru.bmstu.libraryapp.data.preferences.LibraryPreferences
 import ru.bmstu.libraryapp.domain.exceptions.LibraryException
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.random.Random
@@ -17,14 +21,22 @@ import kotlin.random.Random
  * Работает с источником данных для получения и обновления элементов.
  * @param dataSource Источник данных
  */
-class LibraryRepositoryImpl(private val dataSource: LocalDataSource) : LibraryRepository {
+class LibraryRepositoryImpl(
+    private val dataSource: LocalDataSource,
+    preferences: LibraryPreferences
+) : LibraryRepository {
+
+    private val bookPagination = PaginationHelper(dataSource, preferences, LibraryItemType.Book::class,  "books")
+    private val newspaperPagination = PaginationHelper(dataSource, preferences, LibraryItemType.Newspaper::class, "newspapers")
+    private val diskPagination = PaginationHelper(dataSource, preferences, LibraryItemType.Disk::class, "disks")
+
     /**
      * Получение всех книг.
      * @return Список всех книг
      */
     override suspend fun getAllBooks(): Result<List<LibraryItemType.Book>> = withContext(Dispatchers.IO) {
-        handleRequest("books") {
-            dataSource.getAllItems().filterByType<LibraryItemType.Book>()
+        bookPagination.handlePaginationRequest(isInitialLoad = true) {
+            bookPagination.loadInitial().items
         }
     }
 
@@ -33,19 +45,18 @@ class LibraryRepositoryImpl(private val dataSource: LocalDataSource) : LibraryRe
      * @return Список всех газет
      */
     override suspend fun getAllNewspapers(): Result<List<LibraryItemType.Newspaper>> = withContext(Dispatchers.IO) {
-        handleRequest("newspapers") {
-            dataSource.getAllItems().filterByType<LibraryItemType.Newspaper>()
+        newspaperPagination.handlePaginationRequest(isInitialLoad = true) {
+            newspaperPagination.loadInitial().items
         }
     }
-
 
     /**
      * Получение всех дисков.
      * @return Список всех дисков
      */
     override suspend fun getAllDisks(): Result<List<LibraryItemType.Disk>> = withContext(Dispatchers.IO) {
-        handleRequest("disks") {
-            dataSource.getAllItems().filterByType<LibraryItemType.Disk>()
+        diskPagination.handlePaginationRequest(isInitialLoad = true) {
+            diskPagination.loadInitial().items
         }
     }
 
@@ -124,32 +135,68 @@ class LibraryRepositoryImpl(private val dataSource: LocalDataSource) : LibraryRe
         }
     }
 
+    override suspend fun loadMoreItems(forward: Boolean): Result<List<LibraryItemType>> = withContext(Dispatchers.IO) {
+        try {
+            val booksDeferred = async {
+                bookPagination.loadMore(forward).items
+            }
+            val newspapersDeferred = async {
+                newspaperPagination.loadMore(forward).items
+            }
+            val disksDeferred = async {
+                diskPagination.loadMore(forward).items
+            }
 
-    private suspend fun simulateDelay() {
-        delay(Random.nextLong(100, 300))
+            val allItems = listOf(booksDeferred, newspapersDeferred, disksDeferred)
+                .awaitAll()
+                .flatten()
+                .sortedBy { it.id }
+
+            Result.success(allItems)
+        } catch (e: Exception) {
+            Result.failure(LibraryException.LoadError("Failed to load more items: ${e.message}"))
+        }
     }
 
-    private fun shouldThrowError(): Boolean {
-        return Random.nextFloat() < 0.1f
-    }
+    override suspend fun getAllItems(): Result<List<LibraryItemType>> = withContext(Dispatchers.IO) {
+        try {
+            val booksDeferred = async { getAllBooks() }
+            val newspapersDeferred = async { getAllNewspapers() }
+            val disksDeferred = async { getAllDisks() }
 
-    private suspend fun <T> handleRequest(
-        itemType: String,
-        block: suspend () -> T
-    ): Result<T> {
-        return try {
-            simulateDelay()
-            if (shouldThrowError()) {
-                Result.failure(LibraryException.LoadError(itemType))
+            val allResults = listOf(
+                booksDeferred.await(),
+                newspapersDeferred.await(),
+                disksDeferred.await()
+            )
+
+            val errorMessages = allResults
+                .filter { it.isFailure }
+                .mapNotNull { (it.exceptionOrNull() as? LibraryException)?.message }
+
+            val allItems = allResults.flatMap { result ->
+                result.getOrElse { emptyList() }
+            }
+
+            if (errorMessages.isNotEmpty()) {
+                if (allItems.isEmpty()) {
+                    Result.failure(LibraryException.LoadError(errorMessages.joinToString(", ")))
+                } else {
+                    Log.w("LibraryRepository", "Partial data loaded with errors: ${errorMessages.joinToString()}")
+                    Result.success(allItems)
+                }
             } else {
-                Result.success(block())
+                Result.success(allItems)
             }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Result.failure(LibraryException.LoadError(itemType))
+            Result.failure(LibraryException.LoadError("Failed to load all items: ${e.message}"))
         }
     }
+    private suspend fun simulateDelay() = delay(Random.nextLong(100, 300))
+
+    private fun shouldThrowError(): Boolean = Random.nextFloat() < 0.1f
 
     private suspend fun handleMutation(
         operation: String,

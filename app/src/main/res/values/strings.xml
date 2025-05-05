@@ -34,4 +34,8 @@
     <string name="undo">Отменить</string>
     <string name="no_items_found">no items found</string>
     <string name="empty_state_desc">empty state desc</string>
+    <string name="search_hint">Search books</string>
+    <string name="search">Search</string>
+    <string name="filter">Filter</string>
+    <string name="sort">Sort</string>
 </resources>

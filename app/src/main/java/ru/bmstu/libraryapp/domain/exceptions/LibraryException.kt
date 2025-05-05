@@ -5,4 +5,5 @@ sealed class LibraryException : Exception() {
     class SaveError(val itemType: String) : LibraryException()
     class DeleteError(val itemId: Int) : LibraryException()
     class UpdateError(val itemType: String) : LibraryException()
+    class NetworkError(message: String) : LibraryException()
 }

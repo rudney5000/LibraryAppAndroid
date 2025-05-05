@@ -5,6 +5,8 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.SearchView
+import android.widget.Toolbar
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -22,10 +24,18 @@ import ru.bmstu.libraryapp.presentation.views.adapters.LibraryItemAdapter
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.launch
-import ru.bmstu.libraryapp.data.datasources.InMemoryDataSource
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+import ru.bmstu.libraryapp.data.datasources.RoomDataSource
+import ru.bmstu.libraryapp.data.db.LibraryDatabase
+import ru.bmstu.libraryapp.data.network.GoogleBooksApiService
+import ru.bmstu.libraryapp.data.network.NetworkModule
+import ru.bmstu.libraryapp.data.preferences.LibraryPreferences
+import ru.bmstu.libraryapp.data.repositories.GoogleBooksRepositoryImpl
 import ru.bmstu.libraryapp.data.repositories.LibraryRepositoryImpl
 import ru.bmstu.libraryapp.domain.entities.DetailMode
 import ru.bmstu.libraryapp.domain.entities.LibraryItemType
+import ru.bmstu.libraryapp.domain.repositories.GoogleBooksRepository
 
 class LibraryListFragment : BaseFragment() {
     private var _binding: FragmentLibraryListBinding? = null
@@ -35,11 +45,18 @@ class LibraryListFragment : BaseFragment() {
     
     private lateinit var adapter: LibraryItemAdapter
     private val repository: LibraryRepository by lazy {
-        LibraryRepositoryImpl(InMemoryDataSource.getInstance())
+        LibraryRepositoryImpl(
+            RoomDataSource(LibraryDatabase.getInstance(requireContext())),
+            LibraryPreferences(requireContext())
+            )
     }
+    private val googleBooksRepository: GoogleBooksRepository by lazy {
+        GoogleBooksRepositoryImpl(NetworkModule.googleBooksService)
+    }
+    private val preferences by lazy { LibraryPreferences(requireContext()) }
 
     private val viewModel: MainViewModel by viewModels {
-        MainViewModel.provideFactory(repository)
+        MainViewModel.provideFactory(repository, googleBooksRepository, preferences)
     }
 
     override fun onCreateView(
@@ -54,6 +71,7 @@ class LibraryListFragment : BaseFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        setupSearchView()
         setupRecyclerView()
         setupSwipeToDelete()
         setupFab()
@@ -65,8 +83,6 @@ class LibraryListFragment : BaseFragment() {
     }
 
     private fun observeViewModel() {
-        viewModel.refreshItems()
-
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
@@ -82,12 +98,6 @@ class LibraryListFragment : BaseFragment() {
                     viewModel.loading.collect { isLoading ->
                         binding.loadingState.visibility = if (isLoading) View.VISIBLE else View.GONE
                         binding.recyclerView.visibility = if (isLoading) View.GONE else View.VISIBLE
-
-                        if (isLoading) {
-                            binding.loadingState.startShimmer()
-                        } else {
-                            binding.loadingState.stopShimmer()
-                        }
                     }
                 }
 
@@ -95,9 +105,7 @@ class LibraryListFragment : BaseFragment() {
                     viewModel.error.collect { errorMessage ->
                         errorMessage?.let {
                             Snackbar.make(binding.root, it, Snackbar.LENGTH_LONG)
-                                .setAction("Try again") {
-                                    viewModel.refreshItems()
-                                }
+                                .setAction("Retry") { viewModel.refreshItems() }
                                 .show()
                         }
                     }
@@ -117,6 +125,27 @@ class LibraryListFragment : BaseFragment() {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = this@LibraryListFragment.adapter
             setHasFixedSize(true)
+
+            addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                    super.onScrolled(recyclerView, dx, dy)
+
+                    val layoutManager = recyclerView.layoutManager as LinearLayoutManager
+                    val totalItemCount = layoutManager.itemCount
+                    val firstVisibleItem = layoutManager.findFirstVisibleItemPosition()
+                    val lastVisibleItem = layoutManager.findLastVisibleItemPosition()
+
+                    if (!viewModel.loading.value && !viewModel.loadingMore.value &&
+                        firstVisibleItem <= 2) {
+                        viewModel.loadMoreItems(forward = false)
+                    }
+
+                    if (!viewModel.loading.value && !viewModel.loadingMore.value &&
+                        totalItemCount <= lastVisibleItem + 2) {
+                        viewModel.loadMoreItems(forward = true)
+                    }
+                }
+            })
         }
     }
 
@@ -252,6 +281,28 @@ class LibraryListFragment : BaseFragment() {
             }
         }
     }
+
+    private fun setupSearchView() {
+        val searchView = SearchView(requireContext()).apply {
+            layoutParams = Toolbar.LayoutParams(
+                Toolbar.LayoutParams.MATCH_PARENT,
+                Toolbar.LayoutParams.WRAP_CONTENT
+            )
+            queryHint = getString(R.string.search_hint)
+        }
+
+        binding.toolbar.addView(searchView)
+
+        searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+            override fun onQueryTextSubmit(query: String?): Boolean {
+                query?.let { viewModel.searchBooks(title = it, author = null) }
+                return true
+            }
+
+            override fun onQueryTextChange(newText: String?): Boolean = false
+        })
+    }
+
     override fun onDestroyView() {
         binding.loadingState.stopShimmer()
         super.onDestroyView()

@@ -14,13 +14,13 @@ class PaginationHelper<T : Any>(
     private val type: KClass<T>,
     private val itemTypeName: String
 ) {
-    private var currentPageNumber = 0
+    var currentPageNumber = 0
     private var totalItems = 0
     private var isLoading = false
     private var isLastPage = false
 
     private val initialLoadSize: Int
-        get() = preferences.pageSize * 3
+        get() = preferences.pageSize
 
     private val nextLoadSize: Int
         get() = preferences.pageSize

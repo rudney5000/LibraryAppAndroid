@@ -3,6 +3,9 @@ package ru.bmstu.libraryapp.presentation.views.fragments
 import android.content.res.Configuration
 import android.os.Bundle
 import android.view.LayoutInflater
+import android.view.Menu
+import android.view.MenuInflater
+import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.viewModels
@@ -44,6 +47,9 @@ class LibraryListFragment : BaseFragment() {
     }
     private val preferences by lazy { LibraryPreferences(requireContext()) }
 
+    private var isLoadUpInProgress = false
+    private var isLoadDownInProgress = false
+
     private val viewModel: MainViewModel by viewModels {
         MainViewModel.provideFactory(repository, preferences)
     }
@@ -55,6 +61,47 @@ class LibraryListFragment : BaseFragment() {
     ): View {
         _binding = FragmentLibraryListBinding.inflate(inflater, container, false)
         return binding.root
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setHasOptionsMenu(true)
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
+        inflater.inflate(R.menu.library_list_menu, menu)
+        super.onCreateOptionsMenu(menu, inflater)
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onPrepareOptionsMenu(menu: Menu) {
+        val titleMenuItem = menu.findItem(R.id.sort_by_title)
+        val dateMenuItem = menu.findItem(R.id.sort_by_date)
+
+        when (preferences.sortOrder) {
+            "title" -> titleMenuItem.isChecked = true
+            "createdAt" -> dateMenuItem.isChecked = true
+        }
+
+        super.onPrepareOptionsMenu(menu)
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.sort_by_title -> {
+                viewModel.setSortOrder("title")
+                item.isChecked = true
+                true
+            }
+            R.id.sort_by_date -> {
+                viewModel.setSortOrder("createdAt")
+                item.isChecked = true
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -81,14 +128,20 @@ class LibraryListFragment : BaseFragment() {
                         }
                     }
                 }
-
                 launch {
                     viewModel.loading.collect { isLoading ->
                         binding.loadingState.visibility = if (isLoading) View.VISIBLE else View.GONE
                         binding.recyclerView.visibility = if (isLoading) View.GONE else View.VISIBLE
                     }
                 }
-
+                launch {
+                    viewModel.loadingMore.collect { isLoadingMore ->
+                        if (!isLoadingMore) {
+                            isLoadUpInProgress = false
+                            isLoadDownInProgress = false
+                        }
+                    }
+                }
                 launch {
                     viewModel.error.collect { errorMessage ->
                         errorMessage?.let {
@@ -123,13 +176,15 @@ class LibraryListFragment : BaseFragment() {
                     val firstVisibleItem = layoutManager.findFirstVisibleItemPosition()
                     val lastVisibleItem = layoutManager.findLastVisibleItemPosition()
 
-                    if (!viewModel.loading.value && !viewModel.loadingMore.value &&
-                        firstVisibleItem <= 2) {
-                        viewModel.loadMoreItems(forward = false)
+                    if (!isLoadUpInProgress && firstVisibleItem <= 2) {
+                        if (viewModel.currentPageNumber > 0) {
+                            isLoadUpInProgress = true
+                            viewModel.loadMoreItems(forward = false)
+                        }
                     }
 
-                    if (!viewModel.loading.value && !viewModel.loadingMore.value &&
-                        totalItemCount <= lastVisibleItem + 2) {
+                    if (!isLoadDownInProgress && totalItemCount <= lastVisibleItem + 2) {
+                        isLoadDownInProgress = true
                         viewModel.loadMoreItems(forward = true)
                     }
                 }

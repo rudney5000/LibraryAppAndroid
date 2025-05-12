@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import ru.bmstu.libraryapp.data.pagination.PaginationHelper
 import ru.bmstu.libraryapp.data.preferences.LibraryPreferences
 import ru.bmstu.libraryapp.domain.entities.LibraryItemType
 import ru.bmstu.libraryapp.domain.repositories.LibraryRepository
@@ -15,13 +16,20 @@ import java.util.LinkedList
 
 class MainViewModel(
     private val repository: LibraryRepository,
-    preferences: LibraryPreferences
+    private val preferences: LibraryPreferences
 ) : ViewModel() {
 
-    private val _displayItems = MutableStateFlow<List<LibraryItemType>>(emptyList())
+    private val paginationHelper by lazy {
+        PaginationHelper(
+            dataSource = repository.dataSource,
+            preferences = preferences,
+            type = LibraryItemType::class,
+            itemTypeName = "items"
+        )
+    }
 
     private val buffer = LinkedList<LibraryItemType>()
-    private val bufferWindowSize = preferences.pageSize * 3
+    private val bufferWindowSize get() = preferences.pageSize * 3
 
     private val _libraryItems = MutableStateFlow<List<LibraryItemType>>(emptyList())
     val items: StateFlow<List<LibraryItemType>> = _libraryItems.asStateFlow()
@@ -38,6 +46,10 @@ class MainViewModel(
     private val _state = MutableStateFlow<MainViewState>(MainViewState.Loading)
     val state: StateFlow<MainViewState> = _state.asStateFlow()
 
+    private val _sortOrder = MutableStateFlow(preferences.sortOrder)
+    val sortOrder: StateFlow<String> = _sortOrder.asStateFlow()
+
+    val currentPageNumber get() = paginationHelper.currentPageNumber
     init {
         loadAllItems()
     }
@@ -46,31 +58,42 @@ class MainViewModel(
         loadAllItems()
     }
 
+    fun setSortOrder(newSortOrder: String) {
+        if (_sortOrder.value != newSortOrder) {
+            _sortOrder.value = newSortOrder
+            preferences.sortOrder = newSortOrder
+            loadAllItems()
+        }
+    }
+
     fun loadMoreItems(forward: Boolean) {
-        if (state.value is MainViewState.Loading) return
+        if (_loadingMore.value || state.value is MainViewState.Loading) return
 
         viewModelScope.launch {
-            _state.value = MainViewState.Loading
+            _loadingMore.value = true
             repository.loadMoreItems(forward).fold(
                 onSuccess = { newItems ->
                     if (forward) {
                         buffer.addAll(newItems)
                         if (buffer.size > bufferWindowSize) {
-                            buffer.subList(0, newItems.size).clear()
+                            val toRemove = minOf(newItems.size, buffer.size - bufferWindowSize)
+                            buffer.subList(0, toRemove).clear()
                         }
                     } else {
                         buffer.addAll(0, newItems)
                         if (buffer.size > bufferWindowSize) {
-                            buffer.subList(bufferWindowSize, buffer.size).clear()
+                            val toRemove = minOf(newItems.size, buffer.size - bufferWindowSize)
+                            buffer.subList(buffer.size - toRemove, buffer.size).clear()
                         }
                     }
-                    _displayItems.value = buffer.toList()
+                    _libraryItems.value = buffer.toList()
                     _state.value = MainViewState.Content
                 },
                 onFailure = { e ->
                     _state.value = MainViewState.Error("Load more failed: ${e.message}")
                 }
             )
+            _loadingMore.value = false
         }
     }
 
@@ -78,10 +101,13 @@ class MainViewModel(
         viewModelScope.launch {
             _loading.value = true
             _error.value = null
+            _state.value = MainViewState.Loading
 
             repository.getAllItems().fold(
                 onSuccess = { items ->
-                    _libraryItems.value = items
+                    buffer.clear()
+                    buffer.addAll(items)
+                    _libraryItems.value = buffer.toList()
                     _state.value = MainViewState.Content
                 },
                 onFailure = { e ->

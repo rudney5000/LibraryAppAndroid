@@ -7,11 +7,8 @@ import ru.bmstu.libraryapp.domain.entities.LibraryItemType
 import kotlin.coroutines.cancellation.CancellationException
 
 class RoomDataSource(private val database: LibraryDatabase) : LocalDataSource {
-    override suspend fun getItemsPage(
-        page: Int,
-        pageSize: Int,
-        sortBy: String
-    ): List<LibraryItemType> {
+
+    override suspend fun getItemsPage(page: Int, pageSize: Int, sortBy: String): List<LibraryItemType> {
         val offset = page * pageSize
         return database.libraryItemDao()
             .getItems(sortBy, pageSize, offset)
@@ -63,7 +60,7 @@ class RoomDataSource(private val database: LibraryDatabase) : LocalDataSource {
                 }
                 else -> false
             }
-        } catch (e: CancellationException) {
+        } catch (e: Exception) {
             false
         }
     }

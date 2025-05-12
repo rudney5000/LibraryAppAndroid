@@ -1,4 +1,5 @@
 package ru.bmstu.libraryapp.domain.repositories
+import ru.bmstu.libraryapp.data.datasources.LocalDataSource
 import ru.bmstu.libraryapp.domain.entities.LibraryItem
 import ru.bmstu.libraryapp.domain.entities.LibraryItemType
 
@@ -7,24 +8,7 @@ import ru.bmstu.libraryapp.domain.entities.LibraryItemType
  * Определяет методы получения и обновления элементов.
  */
 interface LibraryRepository {
-
-    /**
-     * Получение всех книг из репозитория.
-     * @return Список всех книг
-     */
-    suspend fun getAllBooks(): Result<List<LibraryItemType.Book>>
-
-    /**
-     * Получение всех газет из репозитория.
-     * @return Список всех газет
-     */
-    suspend fun getAllNewspapers(): Result<List<LibraryItemType.Newspaper>>
-
-    /**
-     * Получение всех дисков из репозитория.
-     * @return Список всех дисков
-     */
-    suspend fun getAllDisks(): Result<List<LibraryItemType.Disk>>
+    val dataSource: LocalDataSource
 
     /**
      * Обновление доступности элемента библиотеки.

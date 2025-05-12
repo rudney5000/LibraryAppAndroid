@@ -2,9 +2,18 @@ package ru.bmstu.libraryapp.presentation.views.fragments
 
 import android.content.res.Configuration
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
+import android.view.Menu
+import android.view.MenuInflater
+import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
+import android.widget.EditText
+import android.widget.SearchView
+import android.widget.Toolbar
+import androidx.core.widget.addTextChangedListener
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -22,24 +31,87 @@ import ru.bmstu.libraryapp.presentation.views.adapters.LibraryItemAdapter
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.launch
-import ru.bmstu.libraryapp.data.datasources.InMemoryDataSource
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+import ru.bmstu.libraryapp.data.datasources.RoomDataSource
+import ru.bmstu.libraryapp.data.db.LibraryDatabase
+import ru.bmstu.libraryapp.data.network.GoogleBooksApiService
+import ru.bmstu.libraryapp.data.network.NetworkModule
+import ru.bmstu.libraryapp.data.preferences.LibraryPreferences
+import ru.bmstu.libraryapp.data.repositories.GoogleBooksRepositoryImpl
 import ru.bmstu.libraryapp.data.repositories.LibraryRepositoryImpl
 import ru.bmstu.libraryapp.domain.entities.DetailMode
 import ru.bmstu.libraryapp.domain.entities.LibraryItemType
+import ru.bmstu.libraryapp.domain.entities.LibraryMode
+import ru.bmstu.libraryapp.domain.repositories.GoogleBooksRepository
 
 class LibraryListFragment : BaseFragment() {
     private var _binding: FragmentLibraryListBinding? = null
     private val binding get() = _binding!!
     private var lastCreatedItemId: Int? = null
     private var lastDeletedItem: LibraryItemType? = null
-    
+    private var isLoadUpInProgress = false
+    private var isLoadDownInProgress = false
+    private var currentMode: LibraryMode = LibraryMode.Local
     private lateinit var adapter: LibraryItemAdapter
     private val repository: LibraryRepository by lazy {
-        LibraryRepositoryImpl(InMemoryDataSource.getInstance())
+        LibraryRepositoryImpl(
+            RoomDataSource(LibraryDatabase.getInstance(requireContext())),
+            LibraryPreferences(requireContext())
+        )
     }
+    private val googleBooksRepository by lazy {
+        GoogleBooksRepositoryImpl(
+            googleBooksService = NetworkModule.googleBooksService,
+            context = requireContext()
+        )
+    }
+    private val preferences by lazy { LibraryPreferences(requireContext()) }
 
     private val viewModel: MainViewModel by viewModels {
-        MainViewModel.provideFactory(repository)
+        MainViewModel.provideFactory(repository, googleBooksRepository, preferences)
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setHasOptionsMenu(true)
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
+        inflater.inflate(R.menu.library_list_menu, menu)
+        super.onCreateOptionsMenu(menu, inflater)
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onPrepareOptionsMenu(menu: Menu) {
+        val titleMenuItem = menu.findItem(R.id.sort_by_title)
+        val dateMenuItem = menu.findItem(R.id.sort_by_date)
+
+        when (preferences.sortOrder) {
+            "title" -> titleMenuItem.isChecked = true
+            "createdAt" -> dateMenuItem.isChecked = true
+        }
+
+        super.onPrepareOptionsMenu(menu)
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.action_library -> {
+                item.isChecked = true
+                viewModel.switchToLibrary()
+                true
+            }
+            R.id.action_google_books -> {
+                item.isChecked = true
+                viewModel.switchToGoogleBooks()
+                showGoogleBooksSearchUI()
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
     }
 
     override fun onCreateView(
@@ -54,6 +126,7 @@ class LibraryListFragment : BaseFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        setupSearchView()
         setupRecyclerView()
         setupSwipeToDelete()
         setupFab()
@@ -65,15 +138,19 @@ class LibraryListFragment : BaseFragment() {
     }
 
     private fun observeViewModel() {
-        viewModel.refreshItems()
-
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+
+                launch {
+                    viewModel.mode.collect { mode ->
+                        currentMode = mode
+                        updateUIForCurrentMode(mode)
+                    }
+                }
                 launch {
                     viewModel.items.collect { items ->
                         adapter.submitList(items) {
                             lastCreatedItemId?.let { scrollToItem(it) }
-                            updateEmptyState(items.isEmpty())
                         }
                     }
                 }
@@ -82,11 +159,14 @@ class LibraryListFragment : BaseFragment() {
                     viewModel.loading.collect { isLoading ->
                         binding.loadingState.visibility = if (isLoading) View.VISIBLE else View.GONE
                         binding.recyclerView.visibility = if (isLoading) View.GONE else View.VISIBLE
+                    }
+                }
 
-                        if (isLoading) {
-                            binding.loadingState.startShimmer()
-                        } else {
-                            binding.loadingState.stopShimmer()
+                launch {
+                    viewModel.loadingMore.collect { isLoadingMore ->
+                        if (!isLoadingMore) {
+                            isLoadUpInProgress = false
+                            isLoadDownInProgress = false
                         }
                     }
                 }
@@ -98,12 +178,58 @@ class LibraryListFragment : BaseFragment() {
                                 .setAction("Try again") {
                                     viewModel.refreshItems()
                                 }
+                                .setAction("Retry") { viewModel.refreshItems() }
                                 .show()
                         }
                     }
                 }
             }
         }
+    }
+
+    private fun updateUIForCurrentMode(mode: LibraryMode) {
+        when (mode) {
+            is LibraryMode.Local -> {
+                binding.addFab.show()
+                setupOptionsMenuForLocal()
+            }
+            is LibraryMode.GoogleBooks -> {
+                binding.addFab.hide()
+                setupOptionsMenuForGoogleBooks()
+            }
+        }
+    }
+
+    private fun setupOptionsMenuForLocal() {
+        binding.toolbar.menu.clear()
+        requireActivity().menuInflater.inflate(R.menu.library_list_menu, binding.toolbar.menu)
+
+        val titleItem = binding.toolbar.menu.findItem(R.id.sort_by_title)
+        val dateItem = binding.toolbar.menu.findItem(R.id.sort_by_date)
+
+        when (viewModel.sortOrder.value) {
+            "title" -> titleItem?.isChecked = true
+            "createdAt" -> dateItem?.isChecked = true
+        }
+    }
+
+//    private fun setupOptionsMenuForGoogleBooks() {
+//        binding.toolbar.menu.clear()
+//
+//        // Можно инфлировать другое меню, например google_books_menu.xml
+//        // Или просто добавить нужные пункты вручную
+//        val menu = binding.toolbar.menu
+//
+//        menu.add(Menu.NONE, R.id.action_search, Menu.NONE, R.string.search)
+//            .setIcon(R.drawable.ic_search)
+//            .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM or MenuItem.SHOW_AS_ACTION_COLLAPSE_ACTION_VIEW)
+//
+//        // Если нужно, можно добавить кнопку фильтрации или другие элементы
+//    }
+
+    private fun setupOptionsMenuForGoogleBooks() {
+        binding.toolbar.menu.clear()
+        requireActivity().menuInflater.inflate(R.menu.google_books_menu, binding.toolbar.menu)
     }
 
     private fun setupRecyclerView() {
@@ -117,6 +243,29 @@ class LibraryListFragment : BaseFragment() {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = this@LibraryListFragment.adapter
             setHasFixedSize(true)
+
+            addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                    super.onScrolled(recyclerView, dx, dy)
+
+                    val layoutManager = recyclerView.layoutManager as LinearLayoutManager
+                    val totalItemCount = layoutManager.itemCount
+                    val firstVisibleItem = layoutManager.findFirstVisibleItemPosition()
+                    val lastVisibleItem = layoutManager.findLastVisibleItemPosition()
+
+                    if (!isLoadUpInProgress && firstVisibleItem <= 2) {
+                        if (viewModel.currentPageNumber > 0) {
+                            isLoadUpInProgress = true
+                            viewModel.loadMoreItems(forward = false)
+                        }
+                    }
+
+                    if (!isLoadDownInProgress && totalItemCount <= lastVisibleItem + 2) {
+                        isLoadDownInProgress = true
+                        viewModel.loadMoreItems(forward = true)
+                    }
+                }
+            })
         }
     }
 
@@ -141,7 +290,6 @@ class LibraryListFragment : BaseFragment() {
             ?.currentList
             ?.indexOfFirst { it.id == itemId }
             ?: -1
-
         if (position >= 0) {
             binding.recyclerView.post {
                 binding.recyclerView.smoothScrollToPosition(position)
@@ -184,34 +332,36 @@ class LibraryListFragment : BaseFragment() {
 
             override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
                 val position = viewHolder.bindingAdapterPosition
-                if (position != RecyclerView.NO_POSITION) {
-                    val item = adapter.currentList[position]
+                if (position == RecyclerView.NO_POSITION) return
+
+                val item = adapter.currentList[position]
+
+                if (viewModel.isInGoogleBooksMode) {
+                    viewModel.saveGoogleBook(item as LibraryItemType.Book)
+                    Snackbar.make(binding.root, "Книга добавлена в библиотеку", Snackbar.LENGTH_SHORT).show()
+                } else {
                     lastDeletedItem = item
                     viewModel.deleteItem(item.id)
+
                     val detailContainer = activity?.findViewById<View>(R.id.detail_container)
                     if (detailContainer != null) {
-                        val currentDetailFragment = parentFragmentManager
-                            .findFragmentById(R.id.detail_container) as? LibraryItemDetailFragment
-                        if (currentDetailFragment?.getCurrentItemId() == item.id) {
-                            parentFragmentManager.beginTransaction()
-                                .remove(currentDetailFragment)
-                                .commit()
+                        val currentDetailFragment = parentFragmentManager.findFragmentById(R.id.detail_container) as? LibraryItemDetailFragment
+                        currentDetailFragment?.let {
+                            parentFragmentManager.beginTransaction().remove(it).commit()
                         }
                     }
 
-                    Snackbar.make(
-                        binding.root,
-                        R.string.item_deleted,
-                        Snackbar.LENGTH_LONG
-                    ).setAction(R.string.undo) {
-                        lastDeletedItem?.let { restoredItem ->
-                            viewModel.restoreItem(restoredItem)
-                            lastDeletedItem = null
-                            if (detailContainer != null && resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
-                                openDetailFragment(restoredItem, DetailMode.VIEW)
+                    Snackbar.make(binding.root, R.string.item_deleted, Snackbar.LENGTH_LONG)
+                        .setAction(R.string.undo) {
+                            lastDeletedItem?.let { restoredItem ->
+                                viewModel.restoreItem(restoredItem)
+                                lastDeletedItem = null
+                                if (resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+                                    openDetailFragment(restoredItem, DetailMode.VIEW)
+                                }
                             }
                         }
-                    }.show()
+                        .show()
                 }
             }
         })
@@ -241,17 +391,75 @@ class LibraryListFragment : BaseFragment() {
         }
     }
 
-    private fun updateEmptyState(isEmpty: Boolean) {
-        binding.apply {
-            if (isEmpty && !viewModel.loading.value) {
-                emptyState.visibility = View.VISIBLE
-                recyclerView.visibility = View.GONE
-            } else {
-                emptyState.visibility = View.GONE
-                recyclerView.visibility = View.VISIBLE
+    private fun setupSearchView() {
+        val searchView = SearchView(requireContext()).apply {
+            layoutParams = Toolbar.LayoutParams(
+                Toolbar.LayoutParams.MATCH_PARENT,
+                Toolbar.LayoutParams.WRAP_CONTENT
+            )
+            queryHint = getString(R.string.search_hint)
+        }
+
+        binding.toolbar.addView(searchView)
+
+        searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+            override fun onQueryTextSubmit(query: String?): Boolean {
+                query?.let { viewModel.searchBooks(
+                    title = it,
+                    author = it
+                ) }
+                return true
             }
+
+            override fun onQueryTextChange(newText: String?): Boolean {
+                return true
+            }
+        })
+
+//        searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+//            override fun onQueryTextSubmit(query: String?): Boolean {
+//                query?.let { viewModel.searchBooks(title = it, author = null) }
+//                return true
+//            }
+//
+//            override fun onQueryTextChange(newText: String?): Boolean = false
+//        })
+    }
+    private fun showGoogleBooksSearchUI() {
+        binding.toolbar.removeAllViews()
+        val searchForm = layoutInflater.inflate(R.layout.view_google_books_search, null)
+        binding.toolbar.addView(searchForm)
+
+        val etAuthor = searchForm.findViewById<EditText>(R.id.etAuthor)
+        val etTitle = searchForm.findViewById<EditText>(R.id.etTitle)
+        val btnSearch = searchForm.findViewById<Button>(R.id.btnSearch)
+
+        fun updateButtonState() {
+            val authorText = etAuthor.text.toString().trim()
+            val titleText = etTitle.text.toString().trim()
+            val isAuthorValid = authorText.length >= 3
+            val isTitleValid = titleText.length >= 3
+            btnSearch.isEnabled = isAuthorValid || isTitleValid
+        }
+
+        etAuthor.addTextChangedListener { updateButtonState() }
+        etTitle.addTextChangedListener { updateButtonState() }
+
+        btnSearch.setOnClickListener {
+            val author = etAuthor.text.toString().takeIf { it.isNotBlank() }
+            val title = etTitle.text.toString().takeIf { it.isNotBlank() }
+
+            Log.d("LibraryListFragment", "Начинаем поиск: author=$author, title=$title")
+
+            if (author == null && title == null) {
+                Snackbar.make(binding.root, "Введите автора или заголовок", Snackbar.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            viewModel.searchBooks(author, title)
         }
     }
+
     override fun onDestroyView() {
         binding.loadingState.stopShimmer()
         super.onDestroyView()

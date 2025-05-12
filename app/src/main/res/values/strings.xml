@@ -1,22 +1,26 @@
 <resources>
     <string name="app_name">LibraryApp</string>
+
     <string name="item_id_format">ID: %d</string>
-    <string name="item_clicked_format">Элемент с id %d</string>
+    <string name="item_clicked_format">Элемент с ID %d</string>
     <string name="available">Доступен</string>
     <string name="save">Сохранить</string>
     <string name="title_hint">Название</string>
     <string name="id_hint">ID</string>
     <string name="add_item">Добавить элемент</string>
-    <string name="dialog_choose_item_type">Choose item type</string>
-    <string name="item_type_book">Book</string>
-    <string name="item_type_newspaper">Newspaper</string>
-    <string name="item_type_disk">Disk</string>
+    <string name="delete_confirmation">Удалить элемент?</string>
+    <string name="confirm">Подтвердить</string>
+    <string name="cancel">Отмена</string>
+    <string name="dialog_choose_item_type">Выберите тип элемента</string>
+    <string name="item_type_book">Книга</string>
+    <string name="item_type_newspaper">Газета</string>
+    <string name="item_type_disk">Диск</string>
 
-    <string name="field_author">Author</string>
-    <string name="field_pages">Pages</string>
-    <string name="field_issue_number">Issue Number</string>
-    <string name="field_month">Month</string>
-    <string name="field_disk_type">Type</string>
+    <string name="field_author">Автор</string>
+    <string name="field_pages">Страницы</string>
+    <string name="field_issue_number">Номер выпуска</string>
+    <string name="field_month">Месяц</string>
+    <string name="field_disk_type">Тип диска</string>
 
     <string name="tag_author" translatable="false">author</string>
     <string name="tag_pages" translatable="false">pages</string>
@@ -27,11 +31,29 @@
     <string name="unsaved_changes_title">Несохраненные изменения</string>
     <string name="unsaved_changes_message">Вы хотите отменить свои изменения?</string>
     <string name="discard">Отменить</string>
-    <string name="cancel">Отмена</string>
     <string name="stay">Остаться</string>
 
     <string name="item_deleted">Элемент удален</string>
     <string name="undo">Отменить</string>
-    <string name="no_items_found">no items found</string>
-    <string name="empty_state_desc">empty state desc</string>
+    <string name="error_loading_data">Ошибка загрузки данных</string>
+    <string name="retry">Повторить</string>
+    <string name="no_items_found">Ничего не найдено</string>
+    <string name="empty_state_desc">Здесь будет пусто, пока вы не добавите элементы</string>
+
+    <string name="search_hint">Поиск книг</string>
+    <string name="search">Поиск</string>
+    <string name="filter">Фильтр</string>
+    <string name="sort">Сортировать</string>
+    <string name="source">Источник</string>
+    <string name="library">Библиотека</string>
+    <string name="google_books">Google Книги</string>
+
+    <string name="menu_sort">Сортировка</string>
+    <string name="sort_by_title">По названию</string>
+    <string name="sort_by_date">По дате</string>
+
+    <string name="error_no_internet">Нет подключения к интернету</string>
+    <string name="error_search_google_books">Ошибка поиска в Google Books</string>
+    <string name="error_add_to_library">Не удалось сохранить книгу в библиотеку</string>
+    <string name="legend">Заголовок</string>
 </resources>

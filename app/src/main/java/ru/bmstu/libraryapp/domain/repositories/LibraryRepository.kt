@@ -1,4 +1,5 @@
 package ru.bmstu.libraryapp.domain.repositories
+import ru.bmstu.libraryapp.data.datasources.LocalDataSource
 import ru.bmstu.libraryapp.domain.entities.LibraryItem
 import ru.bmstu.libraryapp.domain.entities.LibraryItemType
 
@@ -7,25 +8,6 @@ import ru.bmstu.libraryapp.domain.entities.LibraryItemType
  * Определяет методы получения и обновления элементов.
  */
 interface LibraryRepository {
-
-    /**
-     * Получение всех книг из репозитория.
-     * @return Список всех книг
-     */
-    suspend fun getAllBooks(): Result<List<LibraryItemType.Book>>
-
-    /**
-     * Получение всех газет из репозитория.
-     * @return Список всех газет
-     */
-    suspend fun getAllNewspapers(): Result<List<LibraryItemType.Newspaper>>
-
-    /**
-     * Получение всех дисков из репозитория.
-     * @return Список всех дисков
-     */
-    suspend fun getAllDisks(): Result<List<LibraryItemType.Disk>>
-
     /**
      * Обновление доступности элемента библиотеки.
      * @param item Элемент для обновления
@@ -39,7 +21,6 @@ interface LibraryRepository {
      * @return true если элемент был успешно удален, false в противном случае
      */
     suspend fun deleteItem(itemId: Int): Result<Boolean>
-
     suspend fun addBook(book: LibraryItemType.Book): Result<Unit>
     suspend fun addNewspaper(newspaper: LibraryItemType.Newspaper): Result<Unit>
     suspend fun addDisk(disk: LibraryItemType.Disk): Result<Unit>
@@ -48,4 +29,5 @@ interface LibraryRepository {
     suspend fun updateDisk(disk: LibraryItemType.Disk): Result<Unit>
     suspend fun loadMoreItems(forward: Boolean): Result<List<LibraryItemType>>
     suspend fun getAllItems(): Result<List<LibraryItemType>>
+    val dataSource: LocalDataSource
 }

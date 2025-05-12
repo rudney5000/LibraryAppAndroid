@@ -32,7 +32,7 @@ class LibraryItemDetailFragment : BaseFragment() {
         )
     }
     private val binding get() = _binding!!
-    
+
     private var item: LibraryItemType? = null
     private var mode: DetailMode = DetailMode.VIEW
     private var scrollPosition = 0
@@ -85,10 +85,8 @@ class LibraryItemDetailFragment : BaseFragment() {
 
     private fun hasUnsavedChanges(): Boolean {
         val currentItem = item ?: return false
-
         if (binding.titleInput.text.toString() != currentItem.title) return true
         if (binding.availabilitySwitch.isChecked != currentItem.isAvailable) return true
-
         when (currentItem) {
             is LibraryItemType.Book -> {
                 if (specificFields[getString(R.string.tag_author)]?.text.toString() != currentItem.author) return true

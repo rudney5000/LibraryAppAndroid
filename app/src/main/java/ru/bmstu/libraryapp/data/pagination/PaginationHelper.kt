@@ -14,7 +14,7 @@ class PaginationHelper<T : Any>(
     private val type: KClass<T>,
     private val itemTypeName: String
 ) {
-    private var currentPageNumber = 0
+    var currentPageNumber = 0
     private var totalItems = 0
     private var isLoading = false
     private var isLastPage = false

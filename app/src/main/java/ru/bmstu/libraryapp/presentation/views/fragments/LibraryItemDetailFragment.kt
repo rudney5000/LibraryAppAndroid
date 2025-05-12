@@ -12,7 +12,9 @@ import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.launch
 import ru.bmstu.libraryapp.R
-import ru.bmstu.libraryapp.data.datasources.InMemoryDataSource
+import ru.bmstu.libraryapp.data.datasources.RoomDataSource
+import ru.bmstu.libraryapp.data.db.LibraryDatabase
+import ru.bmstu.libraryapp.data.preferences.LibraryPreferences
 import ru.bmstu.libraryapp.data.repositories.LibraryRepositoryImpl
 import ru.bmstu.libraryapp.databinding.ActivityLibraryItemDetailBinding
 import ru.bmstu.libraryapp.databinding.ItemDetailFieldBinding
@@ -24,7 +26,10 @@ class LibraryItemDetailFragment : BaseFragment() {
     private var _binding: ActivityLibraryItemDetailBinding? = null
 
     private val repository: LibraryRepository by lazy {
-        LibraryRepositoryImpl(InMemoryDataSource.getInstance())
+        LibraryRepositoryImpl(
+            dataSource = RoomDataSource(LibraryDatabase.getInstance(requireContext())),
+            preferences = LibraryPreferences(requireContext())
+        )
     }
     private val binding get() = _binding!!
     

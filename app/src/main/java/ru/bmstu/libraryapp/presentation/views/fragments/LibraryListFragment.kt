@@ -3,6 +3,9 @@ package ru.bmstu.libraryapp.presentation.views.fragments
 import android.content.res.Configuration
 import android.os.Bundle
 import android.view.LayoutInflater
+import android.view.Menu
+import android.view.MenuInflater
+import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.viewModels
@@ -22,7 +25,9 @@ import ru.bmstu.libraryapp.presentation.views.adapters.LibraryItemAdapter
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.launch
-import ru.bmstu.libraryapp.data.datasources.InMemoryDataSource
+import ru.bmstu.libraryapp.data.datasources.RoomDataSource
+import ru.bmstu.libraryapp.data.db.LibraryDatabase
+import ru.bmstu.libraryapp.data.preferences.LibraryPreferences
 import ru.bmstu.libraryapp.data.repositories.LibraryRepositoryImpl
 import ru.bmstu.libraryapp.domain.entities.DetailMode
 import ru.bmstu.libraryapp.domain.entities.LibraryItemType
@@ -35,11 +40,18 @@ class LibraryListFragment : BaseFragment() {
     
     private lateinit var adapter: LibraryItemAdapter
     private val repository: LibraryRepository by lazy {
-        LibraryRepositoryImpl(InMemoryDataSource.getInstance())
+        LibraryRepositoryImpl(
+            RoomDataSource(LibraryDatabase.getInstance(requireContext())),
+            LibraryPreferences(requireContext())
+            )
     }
+    private val preferences by lazy { LibraryPreferences(requireContext()) }
+
+    private var isLoadUpInProgress = false
+    private var isLoadDownInProgress = false
 
     private val viewModel: MainViewModel by viewModels {
-        MainViewModel.provideFactory(repository)
+        MainViewModel.provideFactory(repository, preferences)
     }
 
     override fun onCreateView(
@@ -49,6 +61,47 @@ class LibraryListFragment : BaseFragment() {
     ): View {
         _binding = FragmentLibraryListBinding.inflate(inflater, container, false)
         return binding.root
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setHasOptionsMenu(true)
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
+        inflater.inflate(R.menu.library_list_menu, menu)
+        super.onCreateOptionsMenu(menu, inflater)
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onPrepareOptionsMenu(menu: Menu) {
+        val titleMenuItem = menu.findItem(R.id.sort_by_title)
+        val dateMenuItem = menu.findItem(R.id.sort_by_date)
+
+        when (preferences.sortOrder) {
+            "title" -> titleMenuItem.isChecked = true
+            "createdAt" -> dateMenuItem.isChecked = true
+        }
+
+        super.onPrepareOptionsMenu(menu)
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.sort_by_title -> {
+                viewModel.setSortOrder("title")
+                item.isChecked = true
+                true
+            }
+            R.id.sort_by_date -> {
+                viewModel.setSortOrder("createdAt")
+                item.isChecked = true
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -65,39 +118,34 @@ class LibraryListFragment : BaseFragment() {
     }
 
     private fun observeViewModel() {
-        viewModel.refreshItems()
-
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
                     viewModel.items.collect { items ->
                         adapter.submitList(items) {
                             lastCreatedItemId?.let { scrollToItem(it) }
-                            updateEmptyState(items.isEmpty())
                         }
                     }
                 }
-
                 launch {
                     viewModel.loading.collect { isLoading ->
                         binding.loadingState.visibility = if (isLoading) View.VISIBLE else View.GONE
                         binding.recyclerView.visibility = if (isLoading) View.GONE else View.VISIBLE
-
-                        if (isLoading) {
-                            binding.loadingState.startShimmer()
-                        } else {
-                            binding.loadingState.stopShimmer()
+                    }
+                }
+                launch {
+                    viewModel.loadingMore.collect { isLoadingMore ->
+                        if (!isLoadingMore) {
+                            isLoadUpInProgress = false
+                            isLoadDownInProgress = false
                         }
                     }
                 }
-
                 launch {
                     viewModel.error.collect { errorMessage ->
                         errorMessage?.let {
                             Snackbar.make(binding.root, it, Snackbar.LENGTH_LONG)
-                                .setAction("Try again") {
-                                    viewModel.refreshItems()
-                                }
+                                .setAction("Retry") { viewModel.refreshItems() }
                                 .show()
                         }
                     }
@@ -117,6 +165,29 @@ class LibraryListFragment : BaseFragment() {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = this@LibraryListFragment.adapter
             setHasFixedSize(true)
+
+            addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                    super.onScrolled(recyclerView, dx, dy)
+
+                    val layoutManager = recyclerView.layoutManager as LinearLayoutManager
+                    val totalItemCount = layoutManager.itemCount
+                    val firstVisibleItem = layoutManager.findFirstVisibleItemPosition()
+                    val lastVisibleItem = layoutManager.findLastVisibleItemPosition()
+
+                    if (!isLoadUpInProgress && firstVisibleItem <= 2) {
+                        if (viewModel.currentPageNumber > 0) {
+                            isLoadUpInProgress = true
+                            viewModel.loadMoreItems(forward = false)
+                        }
+                    }
+
+                    if (!isLoadDownInProgress && totalItemCount <= lastVisibleItem + 2) {
+                        isLoadDownInProgress = true
+                        viewModel.loadMoreItems(forward = true)
+                    }
+                }
+            })
         }
     }
 
@@ -241,17 +312,6 @@ class LibraryListFragment : BaseFragment() {
         }
     }
 
-    private fun updateEmptyState(isEmpty: Boolean) {
-        binding.apply {
-            if (isEmpty && !viewModel.loading.value) {
-                emptyState.visibility = View.VISIBLE
-                recyclerView.visibility = View.GONE
-            } else {
-                emptyState.visibility = View.GONE
-                recyclerView.visibility = View.VISIBLE
-            }
-        }
-    }
     override fun onDestroyView() {
         binding.loadingState.stopShimmer()
         super.onDestroyView()

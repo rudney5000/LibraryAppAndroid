@@ -34,4 +34,8 @@
     <string name="undo">Отменить</string>
     <string name="no_items_found">no items found</string>
     <string name="empty_state_desc">empty state desc</string>
+
+    <string name="menu_sort">menu sort</string>
+    <string name="sort_by_title">sort by title</string>
+    <string name="sort_by_date">sort by date</string>
 </resources>

@@ -124,7 +124,6 @@ class LibraryListFragment : BaseFragment() {
                     viewModel.items.collect { items ->
                         adapter.submitList(items) {
                             lastCreatedItemId?.let { scrollToItem(it) }
-                            updateEmptyState(items.isEmpty())
                         }
                     }
                 }
@@ -313,17 +312,6 @@ class LibraryListFragment : BaseFragment() {
         }
     }
 
-    private fun updateEmptyState(isEmpty: Boolean) {
-        binding.apply {
-            if (isEmpty && !viewModel.loading.value) {
-                emptyState.visibility = View.VISIBLE
-                recyclerView.visibility = View.GONE
-            } else {
-                emptyState.visibility = View.GONE
-                recyclerView.visibility = View.VISIBLE
-            }
-        }
-    }
     override fun onDestroyView() {
         binding.loadingState.stopShimmer()
         super.onDestroyView()

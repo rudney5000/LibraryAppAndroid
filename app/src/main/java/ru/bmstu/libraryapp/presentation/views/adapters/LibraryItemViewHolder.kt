@@ -1,8 +1,8 @@
 package ru.bmstu.libraryapp.presentation.views.adapters
 
 import androidx.recyclerview.widget.RecyclerView
+import ru.bmstu.domain.models.LibraryItemType
 import ru.bmstu.libraryapp.databinding.ItemLibraryBinding
-import ru.bmstu.libraryapp.domain.entities.LibraryItemType
 
 class LibraryItemViewHolder(
     private val binding: ItemLibraryBinding,

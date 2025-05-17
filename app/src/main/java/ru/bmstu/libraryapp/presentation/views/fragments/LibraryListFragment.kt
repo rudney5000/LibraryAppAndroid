@@ -2,9 +2,11 @@ package ru.bmstu.libraryapp.presentation.views.fragments
 
 import android.content.res.Configuration
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.appcompat.widget.SearchView
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -14,33 +16,55 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import ru.bmstu.libraryapp.R
 import ru.bmstu.libraryapp.databinding.FragmentLibraryListBinding
-import ru.bmstu.libraryapp.domain.entities.DiskType
-import ru.bmstu.libraryapp.domain.entities.Month
-import ru.bmstu.libraryapp.domain.repositories.LibraryRepository
 import ru.bmstu.libraryapp.presentation.viewmodels.MainViewModel
 import ru.bmstu.libraryapp.presentation.views.adapters.LibraryItemAdapter
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.launch
-import ru.bmstu.libraryapp.data.datasources.InMemoryDataSource
-import ru.bmstu.libraryapp.data.repositories.LibraryRepositoryImpl
-import ru.bmstu.libraryapp.domain.entities.DetailMode
-import ru.bmstu.libraryapp.domain.entities.LibraryItemType
+import ru.bmstu.common.types.DetailMode
+import ru.bmstu.common.types.DiskType
+import ru.bmstu.common.types.LibraryMode
+import ru.bmstu.common.types.Month
+import ru.bmstu.data.datasources.InMemoryDataSource
+import ru.bmstu.data.filters.LibraryFilter
+import ru.bmstu.data.filters.SortBy
+import ru.bmstu.data.network.NetworkModule.googleBooksService
+import ru.bmstu.data.repositories.impl.GoogleBooksRepositoryImpl
+import ru.bmstu.data.repositories.impl.LibraryRepositoryImpl
+import ru.bmstu.domain.models.LibraryItemType
+import ru.bmstu.domain.repositories.GoogleBooksRepository
+import ru.bmstu.domain.repositories.LibraryRepository
+import ru.bmstu.libraryapp.presentation.viewmodels.ViewModelFactory
+import ru.bmstu.libraryapp.presentation.viewmodels.state.MainViewState
+import ru.bmstu.libraryapp.presentation.viewmodels.SearchViewModel
 
 class LibraryListFragment : BaseFragment() {
+    private val TAG = "LibraryListFragment"
+
     private var _binding: FragmentLibraryListBinding? = null
     private val binding get() = _binding!!
     private var lastCreatedItemId: Int? = null
     private var lastDeletedItem: LibraryItemType? = null
-    
     private lateinit var adapter: LibraryItemAdapter
+
     private val repository: LibraryRepository by lazy {
         LibraryRepositoryImpl(InMemoryDataSource.getInstance())
     }
 
-    private val viewModel: MainViewModel by viewModels {
-        MainViewModel.provideFactory(repository)
+    private val googleBooksRepository: GoogleBooksRepository by lazy {
+        GoogleBooksRepositoryImpl(googleBooksService, requireContext())
     }
+
+    val viewModel: MainViewModel by viewModels {
+        ViewModelFactory.create(repository, googleBooksRepository, requireContext())
+    }
+
+    private val searchViewModel: SearchViewModel by viewModels {
+        ViewModelFactory.create(repository, googleBooksRepository, requireContext())
+    }
+
+    private var isSearchMode = false
+    private var libraryMode = LibraryMode.LOCAL
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -48,16 +72,22 @@ class LibraryListFragment : BaseFragment() {
         savedInstanceState: Bundle?
     ): View {
         _binding = FragmentLibraryListBinding.inflate(inflater, container, false)
+        setHasOptionsMenu(true)
         return binding.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        Log.d(TAG, "GoogleBooksRepository initialized: ${googleBooksRepository != null}")
+
         setupRecyclerView()
         setupSwipeToDelete()
         setupFab()
+        setupSearchView()
+        setupToolbar()
         observeViewModel()
+        observeSearchViewModel()
     }
 
     override fun handleBackPressed(): Boolean {
@@ -65,40 +95,28 @@ class LibraryListFragment : BaseFragment() {
     }
 
     private fun observeViewModel() {
-        viewModel.refreshItems()
-
         viewLifecycleOwner.lifecycleScope.launch {
-            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                launch {
-                    viewModel.items.collect { items ->
-                        adapter.submitList(items) {
-                            lastCreatedItemId?.let { scrollToItem(it) }
-                            updateEmptyState(items.isEmpty())
-                        }
-                    }
-                }
-
-                launch {
-                    viewModel.loading.collect { isLoading ->
-                        binding.loadingState.visibility = if (isLoading) View.VISIBLE else View.GONE
-                        binding.recyclerView.visibility = if (isLoading) View.GONE else View.VISIBLE
-
-                        if (isLoading) {
-                            binding.loadingState.startShimmer()
-                        } else {
-                            binding.loadingState.stopShimmer()
-                        }
-                    }
-                }
-
-                launch {
-                    viewModel.error.collect { errorMessage ->
-                        errorMessage?.let {
-                            Snackbar.make(binding.root, it, Snackbar.LENGTH_LONG)
-                                .setAction("Try again") {
-                                    viewModel.refreshItems()
-                                }
-                                .show()
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.state.collect { uiState ->
+                    if (!isSearchMode) {
+                        when (uiState) {
+                            is MainViewState.Loading -> {
+                                binding.loadingState.visibility = View.VISIBLE
+                                binding.recyclerView.visibility = View.GONE
+                            }
+                            is MainViewState.Success -> {
+                                binding.loadingState.visibility = View.GONE
+                                binding.recyclerView.visibility = View.VISIBLE
+                                adapter.submitList(uiState.data)
+                            }
+                            is MainViewState.Error -> {
+                                binding.loadingState.visibility = View.GONE
+                                Snackbar.make(binding.root, uiState.message, Snackbar.LENGTH_LONG)
+                                    .setAction("Try again") {
+                                        viewModel.refreshItems()
+                                    }
+                                    .show()
+                            }
                         }
                     }
                 }
@@ -120,6 +138,11 @@ class LibraryListFragment : BaseFragment() {
         }
     }
 
+    private fun updateSortOption(sortBy: SortBy) {
+        val currentFilter = LibraryFilter(sortBy = sortBy)
+        viewModel.updateFilter(currentFilter.copy(sortBy = sortBy))
+    }
+
     private fun setupFab() {
         binding.addFab.setOnClickListener {
             showItemTypeDialog()
@@ -134,13 +157,12 @@ class LibraryListFragment : BaseFragment() {
     fun refreshList() {
         viewModel.refreshItems()
     }
-
     fun scrollToItem(itemId: Int) {
         lastCreatedItemId = itemId
-        val position = (binding.recyclerView.adapter as? LibraryItemAdapter)
-            ?.currentList
-            ?.indexOfFirst { it.id == itemId }
-            ?: -1
+
+        val position = adapter.currentList.indexOfFirst {
+            it.id == itemId
+        }
 
         if (position >= 0) {
             binding.recyclerView.post {
@@ -188,7 +210,9 @@ class LibraryListFragment : BaseFragment() {
                     val item = adapter.currentList[position]
                     lastDeletedItem = item
                     viewModel.deleteItem(item.id)
+
                     val detailContainer = activity?.findViewById<View>(R.id.detail_container)
+
                     if (detailContainer != null) {
                         val currentDetailFragment = parentFragmentManager
                             .findFragmentById(R.id.detail_container) as? LibraryItemDetailFragment
@@ -198,7 +222,6 @@ class LibraryListFragment : BaseFragment() {
                                 .commit()
                         }
                     }
-
                     Snackbar.make(
                         binding.root,
                         R.string.item_deleted,
@@ -240,21 +263,135 @@ class LibraryListFragment : BaseFragment() {
                 .commit()
         }
     }
-
-    private fun updateEmptyState(isEmpty: Boolean) {
-        binding.apply {
-            if (isEmpty && !viewModel.loading.value) {
-                emptyState.visibility = View.VISIBLE
-                recyclerView.visibility = View.GONE
-            } else {
-                emptyState.visibility = View.GONE
-                recyclerView.visibility = View.VISIBLE
-            }
-        }
-    }
     override fun onDestroyView() {
         binding.loadingState.stopShimmer()
         super.onDestroyView()
         _binding = null
+    }
+
+    private fun setupToolbar() {
+        binding.toolbar.inflateMenu(R.menu.library_list_menu)
+        binding.toolbar.setOnMenuItemClickListener { menuItem ->
+            when (menuItem.itemId) {
+                R.id.action_library -> {
+                    Log.d(TAG, "Switching to LOCAL library mode")
+                    setLibraryMode(LibraryMode.LOCAL)
+                    true
+                }
+                R.id.action_google_books -> {
+                    Log.d(TAG, "Switching to GOOGLE_BOOKS mode")
+                    setLibraryMode(LibraryMode.GOOGLE_BOOKS)
+                    true
+                }
+                R.id.sort_by_title -> {
+                    menuItem.isChecked = true
+                    updateSortOption(SortBy.TITLE)
+                    true
+                }
+                R.id.sort_by_date -> {
+                    menuItem.isChecked = true
+                    updateSortOption(SortBy.DATE)
+                    true
+                }
+                R.id.sort_by_author -> {
+                    menuItem.isChecked = true
+                    updateSortOption(SortBy.AUTHOR)
+                    true
+                }
+                else -> false
+            }
+        }
+    }
+
+    private fun setLibraryMode(mode: LibraryMode) {
+        Log.d(TAG, "Setting library mode: $mode")
+        libraryMode = mode
+        searchViewModel.setLibraryMode(mode)
+
+        // Utiliser mainViewModel pour charger les livres selon le mode
+        viewModel.setLibraryMode(mode)
+
+        when (mode) {
+            LibraryMode.LOCAL -> {
+                binding.addFab.visibility = View.VISIBLE
+                isSearchMode = false
+                // Le chargement est déjà géré par viewModel.setLibraryMode(mode)
+            }
+            LibraryMode.GOOGLE_BOOKS -> {
+                binding.addFab.visibility = View.GONE
+                isSearchMode = false  // Pas en mode recherche par défaut
+                // Le chargement est déjà géré par viewModel.setLibraryMode(mode)
+            }
+        }
+
+        binding.toolbar.menu.findItem(R.id.action_library)?.isChecked = mode == LibraryMode.LOCAL
+        binding.toolbar.menu.findItem(R.id.action_google_books)?.isChecked = mode == LibraryMode.GOOGLE_BOOKS
+    }
+
+    private fun setupSearchView() {
+        binding.searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+            override fun onQueryTextSubmit(query: String?): Boolean {
+                query?.let {
+                    if (it.isNotBlank()) {
+                        isSearchMode = true
+                        Log.d(TAG, "Search query submitted: $it, mode: $libraryMode")
+                        searchViewModel.searchBooks(it)
+                    }
+                }
+                return true
+            }
+
+            override fun onQueryTextChange(newText: String?): Boolean {
+                Log.d(TAG, "Search query changed: $newText")
+                if (newText.isNullOrBlank()) {
+                    isSearchMode = false
+                    viewModel.refreshItems()
+                }
+                return true
+            }
+        })
+
+            binding.searchView.setOnCloseListener {
+                Log.d(TAG, "Search view closed")
+                isSearchMode = false
+                viewModel.refreshItems()
+                false
+            }
+    }
+
+    private fun observeSearchViewModel() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                searchViewModel.searchResults.collect { books ->
+                    if (isSearchMode) {
+                        adapter.submitList(books)
+                    }
+                }
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                searchViewModel.state.collect { state ->
+                    if (isSearchMode) {
+                        when (state) {
+                            is MainViewState.Loading -> {
+                                binding.loadingState.visibility = View.VISIBLE
+                                binding.recyclerView.visibility = View.GONE
+                            }
+                            is MainViewState.Success -> {
+                                binding.loadingState.visibility = View.GONE
+                                binding.recyclerView.visibility = View.VISIBLE
+                            }
+                            is MainViewState.Error -> {
+                                binding.loadingState.visibility = View.GONE
+                                binding.recyclerView.visibility = View.VISIBLE
+                                Snackbar.make(binding.root, state.message, Snackbar.LENGTH_LONG).show()
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

@@ -3,8 +3,8 @@ package ru.bmstu.libraryapp.presentation.views.adapters
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.ListAdapter
+import ru.bmstu.domain.models.LibraryItemType
 import ru.bmstu.libraryapp.databinding.ItemLibraryBinding
-import ru.bmstu.libraryapp.domain.entities.LibraryItemType
 
 class LibraryItemAdapter(
     private val onItemClick: (LibraryItemType) -> Unit

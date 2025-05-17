@@ -1,119 +1,151 @@
 package ru.bmstu.libraryapp.presentation.viewmodels
 
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.viewModelScope
+import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
-import ru.bmstu.libraryapp.domain.entities.LibraryItemType
-import ru.bmstu.libraryapp.domain.repositories.LibraryRepository
+import ru.bmstu.common.result.ApiResult
+import ru.bmstu.common.types.LibraryMode
+import ru.bmstu.data.filters.LibraryFilter
+import ru.bmstu.domain.models.LibraryItemType
+import ru.bmstu.domain.repositories.GoogleBooksRepository
+import ru.bmstu.domain.usecases.AddBookUseCase
+import ru.bmstu.domain.usecases.AddDiskUseCase
+import ru.bmstu.domain.usecases.AddNewspaperUseCase
+import ru.bmstu.domain.usecases.DeleteItemUseCase
+import ru.bmstu.domain.usecases.GetAllBooksUseCase
+import ru.bmstu.domain.usecases.GetAllDisksUseCase
+import ru.bmstu.domain.usecases.GetAllNewspapersUseCase
 import ru.bmstu.libraryapp.presentation.viewmodels.state.MainViewState
 
-class MainViewModel(private val repository: LibraryRepository) : ViewModel() {
+class MainViewModel(
+    private val getAllBooksUseCase: GetAllBooksUseCase,
+    private val getAllNewspapersUseCase: GetAllNewspapersUseCase,
+    private val getAllDisksUseCase: GetAllDisksUseCase,
+    private val deleteItemUseCase: DeleteItemUseCase,
+    private val addBookUseCase: AddBookUseCase,
+    private val addNewspaperUseCase: AddNewspaperUseCase,
+    private val addDiskUseCase: AddDiskUseCase,
+    private val googleBooksRepository: GoogleBooksRepository
+) : BaseViewModel() {
+    private val TAG = "MainViewModel"
 
     private val _libraryItems = MutableStateFlow<List<LibraryItemType>>(emptyList())
     val items: StateFlow<List<LibraryItemType>> = _libraryItems.asStateFlow()
 
-    private val _loading = MutableStateFlow(false)
-    val loading: StateFlow<Boolean> = _loading.asStateFlow()
-
-    private val _error = MutableStateFlow<String?>(null)
-    val error: StateFlow<String?> = _error.asStateFlow()
-
-
-    private val _state = MutableStateFlow<MainViewState>(MainViewState.Loading)
-    val state: StateFlow<MainViewState> = _state.asStateFlow()
+    private var currentMode = LibraryMode.LOCAL
 
     init {
         loadAllItems()
     }
 
-    fun refreshItems() {
-        loadAllItems()
+
+    fun setLibraryMode(mode: LibraryMode) {
+        Log.d(TAG, "Setting library mode to: $mode")
+        if (currentMode == mode) return
+
+        currentMode = mode
+        when (mode) {
+            LibraryMode.LOCAL -> loadAllItems()
+            LibraryMode.GOOGLE_BOOKS -> loadGoogleBooks()
+        }
+    }
+
+    private fun loadGoogleBooks() {
+        Log.d(TAG, "Loading Google Books")
+        launchAndHandle(
+            onFetch = {
+                _state.value = MainViewState.Loading
+                // Utiliser une requête générique pour obtenir des livres populaires
+                googleBooksRepository.searchBooks("popular", "books").fold(
+                    onSuccess = { ApiResult.Success(it) },
+                    onFailure = { ApiResult.Error(-1, it.message ?: "Failed to load Google Books") }
+                )
+            },
+            onSuccess = { books ->
+                Log.d(TAG, "Loaded ${books.size} books from Google Books")
+                _libraryItems.value = books
+                _state.value = MainViewState.Success(books)
+            }
+        )
     }
 
     private fun loadAllItems() {
-        viewModelScope.launch {
-            _loading.value = true
-            _error.value = null
-            _state.value = MainViewState.Loading
-
-            try {
+        launchAndHandle(
+            onFetch = {
+                val booksResult = getAllBooksUseCase()
+                val newspapersResult = getAllNewspapersUseCase()
+                val disksResult = getAllDisksUseCase()
 
                 val allItems = mutableListOf<LibraryItemType>()
-                val errorMessages = mutableListOf<String>()
+                val errors = mutableListOf<String>()
 
-                repository.getAllBooks().fold(
-                    onSuccess = { books -> allItems.addAll(books) },
-                    onFailure = { errorMessages.add("books") }
+                booksResult.fold(
+                    onSuccess = { allItems.addAll(it) },
+                    onFailure = { errors.add("books") }
                 )
 
-                repository.getAllNewspapers().fold(
-                    onSuccess = { newspapers -> allItems.addAll(newspapers) },
-                    onFailure = { errorMessages.add("newspapers") }
+                newspapersResult.fold(
+                    onSuccess = { allItems.addAll(it) },
+                    onFailure = { errors.add("newspapers") }
                 )
 
-                repository.getAllDisks().fold(
-                    onSuccess = { disks -> allItems.addAll(disks) },
-                    onFailure = { errorMessages.add("disk") }
+                disksResult.fold(
+                    onSuccess = { allItems.addAll(it) },
+                    onFailure = { errors.add("disks") }
                 )
-                _libraryItems.value = allItems
 
-                if (errorMessages.isNotEmpty()) {
-                    _error.value = "Error loading ${errorMessages.joinToString(", ")}"
+                if (errors.isNotEmpty()) {
+                    ApiResult.Error(code = -1, message = "Errors loading: ${errors.joinToString(", ")}")
+                } else {
+                    ApiResult.Success(allItems)
                 }
-            } catch (e: Exception) {
-                _error.value = "Unexpected error: ${e.message}"
-                _libraryItems.value = emptyList()
-            } finally {
-                _loading.value = false
+            },
+            onSuccess = {
+                _libraryItems.value = it
+                _state.value = MainViewState.Success(it)
             }
-        }
+        )
     }
 
-
     fun deleteItem(itemId: Int): LibraryItemType? {
-        val item = _libraryItems.value.find { it.id == itemId }
-        if (item != null) {
-            viewModelScope.launch {
-                repository.deleteItem(itemId)
-                    .onSuccess {
-                        refreshItems()
-                    }
-                    .onFailure {
-                        _state.value = MainViewState.Error("Delete failed")
-                    }
+        val item = _libraryItems.value.find { it.id == itemId } ?: return null
+
+        launchAndHandle(
+            onFetch = {
+                deleteItemUseCase(itemId).let { ApiResult.Success(Unit) }
+            },
+            onSuccess = {
+                refreshItems()
             }
-            return item
-        }
-        return null
+        )
+
+        return item
     }
 
     fun restoreItem(item: LibraryItemType) {
-        viewModelScope.launch {
-            try {
+        launchAndHandle(
+            onFetch = {
                 when (item) {
-                    is LibraryItemType.Book -> repository.addBook(item)
-                    is LibraryItemType.Newspaper -> repository.addNewspaper(item)
-                    is LibraryItemType.Disk -> repository.addDisk(item)
-                }
+                    is LibraryItemType.Book -> addBookUseCase(item)
+                    is LibraryItemType.Newspaper -> addNewspaperUseCase(item)
+                    is LibraryItemType.Disk -> addDiskUseCase(item)
+                }.let { ApiResult.Success(Unit) }
+            },
+            onSuccess = {
                 refreshItems()
-            } catch (e: Exception) {
-                _error.value = e.message
             }
-        }
+        )
     }
 
-    companion object {
-        fun provideFactory(repository: LibraryRepository): ViewModelProvider.Factory {
-            return object : ViewModelProvider.Factory {
-                @Suppress("UNCHECKED_CAST")
-                override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                    return MainViewModel(repository) as T
-                }
-            }
+    fun updateFilter(filter: LibraryFilter) {
+        refreshItems()
+    }
+
+    fun refreshItems() {
+        when (currentMode) {
+            LibraryMode.LOCAL -> loadAllItems()
+            LibraryMode.GOOGLE_BOOKS -> loadGoogleBooks()
         }
     }
 }

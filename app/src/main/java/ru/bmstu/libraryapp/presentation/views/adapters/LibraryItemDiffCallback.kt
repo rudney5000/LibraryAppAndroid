@@ -2,7 +2,7 @@ package ru.bmstu.libraryapp.presentation.views.adapters
 
 import android.annotation.SuppressLint
 import androidx.recyclerview.widget.DiffUtil
-import ru.bmstu.libraryapp.domain.entities.LibraryItemType
+import ru.bmstu.domain.models.LibraryItemType
 
 class LibraryItemDiffCallback : DiffUtil.ItemCallback<LibraryItemType>() {
 
@@ -21,8 +21,4 @@ class LibraryItemDiffCallback : DiffUtil.ItemCallback<LibraryItemType>() {
             else -> null
         }
     }
-}
-
-sealed class LibraryItemPayload {
-    data class AvailabilityChanged(val newAvailability: Boolean) : LibraryItemPayload()
 }

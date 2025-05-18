@@ -2,7 +2,6 @@ package ru.bmstu.data.repositories.impl
 
 import android.Manifest
 import android.content.Context
-import android.util.Log
 import androidx.annotation.RequiresPermission
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -17,43 +16,34 @@ class GoogleBooksRepositoryImpl(
     private val googleBooksService: GoogleBooksApiService,
     private val context: Context
 ) : GoogleBooksRepository {
-    private val TAG = "GoogleBooksRepo"
 
     @RequiresPermission(Manifest.permission.ACCESS_NETWORK_STATE)
     override suspend fun searchBooks(author: String?, title: String?): Result<List<LibraryItemType.Book>> = withContext(
         Dispatchers.IO) {
         if (author.isNullOrBlank() && title.isNullOrBlank()) {
-            Log.d(TAG, "Search aborted: both author and title are empty")
             return@withContext Result.success(emptyList())
         }
 
         if (!hasInternetConnection(context)) {
-            Log.e(TAG, "Search failed: no internet connection")
             return@withContext Result.failure(LibraryException.NetworkError("Нет подключения к интернету"))
         }
 
         val query = buildQuery(author, title)
-        Log.d(TAG, "Searching with query: $query")
         return@withContext try {
             val response = googleBooksService.searchBooks(query)
-            Log.d(TAG, "API response: ${response.code()} ${response.message()}")
 
             if (response.isSuccessful) {
                 val body = response.body()
-                Log.d(TAG, "Response body: ${body?.totalItems} total items, ${body?.items?.size} items in this response")
                 val books = body?.items?.mapNotNull {
                     it.toLibraryItem()
                 } ?: emptyList()
-                Log.d(TAG, "Mapped ${books.size} valid books with ISBNs")
 
                 Result.success(books)
             } else {
                 val errorMsg = "Ошибка API: ${response.code()} ${response.message()}"
-                Log.e(TAG, errorMsg)
                 Result.failure(LibraryException.NetworkError(errorMsg))
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Exception during API call", e)
             Result.failure(LibraryException.NetworkError(e.message ?: "Сеть недоступна"))
         }
     }
@@ -79,11 +69,9 @@ class GoogleBooksRepositoryImpl(
             it.type in listOf("ISBN_10", "ISBN_13")
         }?.identifier
 
-        Log.d(TAG, "Converting book: ${volumeInfo.title}, authors: ${volumeInfo.authors?.joinToString()}, ISBN: $identifier")
 
         val finalIdentifier = if (identifier.isNullOrBlank()) {
             val backupId = volumeInfo.title?.hashCode()?.toString() ?: return null
-            Log.d(TAG, "No ISBN found, using title hash as ID: $backupId")
             backupId
         } else {
             identifier

@@ -1,6 +1,5 @@
 package ru.bmstu.libraryapp.presentation.viewmodels
 
-import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,7 +27,6 @@ class MainViewModel(
     private val addDiskUseCase: AddDiskUseCase,
     private val googleBooksRepository: GoogleBooksRepository
 ) : BaseViewModel() {
-    private val TAG = "MainViewModel"
 
     private val _libraryItems = MutableStateFlow<List<LibraryItemType>>(emptyList())
     val items: StateFlow<List<LibraryItemType>> = _libraryItems.asStateFlow()
@@ -41,7 +39,6 @@ class MainViewModel(
 
 
     fun setLibraryMode(mode: LibraryMode) {
-        Log.d(TAG, "Setting library mode to: $mode")
         if (currentMode == mode) return
 
         currentMode = mode
@@ -52,18 +49,15 @@ class MainViewModel(
     }
 
     private fun loadGoogleBooks() {
-        Log.d(TAG, "Loading Google Books")
         launchAndHandle(
             onFetch = {
                 _state.value = MainViewState.Loading
-                // Utiliser une requête générique pour obtenir des livres populaires
                 googleBooksRepository.searchBooks("popular", "books").fold(
                     onSuccess = { ApiResult.Success(it) },
                     onFailure = { ApiResult.Error(-1, it.message ?: "Failed to load Google Books") }
                 )
             },
             onSuccess = { books ->
-                Log.d(TAG, "Loaded ${books.size} books from Google Books")
                 _libraryItems.value = books
                 _state.value = MainViewState.Success(books)
             }

@@ -16,10 +16,7 @@ import kotlinx.coroutines.launch
 import ru.bmstu.common.types.DetailMode
 import ru.bmstu.common.types.DiskType
 import ru.bmstu.common.types.Month
-import ru.bmstu.data.datasources.InMemoryDataSource
-import ru.bmstu.data.repositories.impl.LibraryRepositoryImpl
 import ru.bmstu.domain.models.LibraryItemType
-import ru.bmstu.domain.repositories.LibraryRepository
 import ru.bmstu.libraryapp.MainApplication
 import ru.bmstu.libraryapp.R
 import ru.bmstu.libraryapp.databinding.ActivityLibraryItemDetailBinding
@@ -35,9 +32,6 @@ class LibraryItemDetailFragment : BaseFragment() {
     @Inject
     lateinit var viewModelFactory: ViewModelFactory
 
-    private val repository: LibraryRepository by lazy {
-        LibraryRepositoryImpl(InMemoryDataSource.getInstance())
-    }
     private val binding get() = _binding!!
     
     private var item: LibraryItemType? = null
@@ -47,14 +41,6 @@ class LibraryItemDetailFragment : BaseFragment() {
     private val viewModel: LibraryItemDetailViewModel by viewModels {
         viewModelFactory
     }
-
-//    private val viewModel: LibraryItemDetailViewModel by viewModels {
-//        ViewModelFactory.create (
-//                repository = repository,
-//                initialItem = item,
-//                mode = mode
-//            )
-//    }
 
     private val specificFields = mutableMapOf<String, EditText>()
 
@@ -265,14 +251,6 @@ class LibraryItemDetailFragment : BaseFragment() {
             parentFragmentManager.popBackStack()
         }
     }
-
-//    override fun onCreate(savedInstanceState: Bundle?) {
-//        super.onCreate(savedInstanceState)
-//        arguments?.let {
-//            item = it.getParcelable(ARG_ITEM)
-//            mode = DetailMode.valueOf(it.getString(ARG_MODE, DetailMode.VIEW.name))
-//        }
-//    }
 
     private fun observeViewModel() {
         viewLifecycleOwner.lifecycleScope.launch {

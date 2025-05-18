@@ -2,7 +2,6 @@ package ru.bmstu.libraryapp.presentation.views.fragments
 
 import android.content.res.Configuration
 import android.os.Bundle
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -39,8 +38,6 @@ import ru.bmstu.libraryapp.presentation.viewmodels.state.MainViewState
 import ru.bmstu.libraryapp.presentation.viewmodels.SearchViewModel
 
 class LibraryListFragment : BaseFragment() {
-    private val TAG = "LibraryListFragment"
-
     private var _binding: FragmentLibraryListBinding? = null
     private val binding get() = _binding!!
     private var lastCreatedItemId: Int? = null
@@ -78,9 +75,6 @@ class LibraryListFragment : BaseFragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
-        Log.d(TAG, "GoogleBooksRepository initialized: ${googleBooksRepository != null}")
-
         setupRecyclerView()
         setupSwipeToDelete()
         setupFab()
@@ -274,12 +268,10 @@ class LibraryListFragment : BaseFragment() {
         binding.toolbar.setOnMenuItemClickListener { menuItem ->
             when (menuItem.itemId) {
                 R.id.action_library -> {
-                    Log.d(TAG, "Switching to LOCAL library mode")
                     setLibraryMode(LibraryMode.LOCAL)
                     true
                 }
                 R.id.action_google_books -> {
-                    Log.d(TAG, "Switching to GOOGLE_BOOKS mode")
                     setLibraryMode(LibraryMode.GOOGLE_BOOKS)
                     true
                 }
@@ -304,23 +296,19 @@ class LibraryListFragment : BaseFragment() {
     }
 
     private fun setLibraryMode(mode: LibraryMode) {
-        Log.d(TAG, "Setting library mode: $mode")
         libraryMode = mode
         searchViewModel.setLibraryMode(mode)
 
-        // Utiliser mainViewModel pour charger les livres selon le mode
         viewModel.setLibraryMode(mode)
 
         when (mode) {
             LibraryMode.LOCAL -> {
                 binding.addFab.visibility = View.VISIBLE
                 isSearchMode = false
-                // Le chargement est déjà géré par viewModel.setLibraryMode(mode)
             }
             LibraryMode.GOOGLE_BOOKS -> {
                 binding.addFab.visibility = View.GONE
-                isSearchMode = false  // Pas en mode recherche par défaut
-                // Le chargement est déjà géré par viewModel.setLibraryMode(mode)
+                isSearchMode = false
             }
         }
 
@@ -334,7 +322,6 @@ class LibraryListFragment : BaseFragment() {
                 query?.let {
                     if (it.isNotBlank()) {
                         isSearchMode = true
-                        Log.d(TAG, "Search query submitted: $it, mode: $libraryMode")
                         searchViewModel.searchBooks(it)
                     }
                 }
@@ -342,7 +329,6 @@ class LibraryListFragment : BaseFragment() {
             }
 
             override fun onQueryTextChange(newText: String?): Boolean {
-                Log.d(TAG, "Search query changed: $newText")
                 if (newText.isNullOrBlank()) {
                     isSearchMode = false
                     viewModel.refreshItems()
@@ -352,7 +338,6 @@ class LibraryListFragment : BaseFragment() {
         })
 
             binding.searchView.setOnCloseListener {
-                Log.d(TAG, "Search view closed")
                 isSearchMode = false
                 viewModel.refreshItems()
                 false

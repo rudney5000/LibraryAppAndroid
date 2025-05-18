@@ -1,6 +1,5 @@
 package ru.bmstu.libraryapp.presentation.viewmodels
 
-import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,7 +23,6 @@ class SearchViewModel(
     }
 
     fun searchBooks(query: String) {
-        Log.d("SearchViewModel", "Searching books with query: $query, mode: $libraryMode")
         launchAndHandle(
             onFetch = {
                 _state.value = MainViewState.Loading
@@ -36,7 +34,6 @@ class SearchViewModel(
                 }
             },
             onSuccess = {
-                Log.d("SearchViewModel", "Search successful, found ${it.size} books")
                 _searchResults.value = it
                 _state.value = MainViewState.Success(it)
             }

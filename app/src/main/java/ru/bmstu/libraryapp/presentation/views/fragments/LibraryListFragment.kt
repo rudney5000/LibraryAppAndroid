@@ -1,5 +1,6 @@
 package ru.bmstu.libraryapp.presentation.views.fragments
 
+import android.content.Context
 import android.content.res.Configuration
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -8,6 +9,7 @@ import android.view.ViewGroup
 import androidx.appcompat.widget.SearchView
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.ItemTouchHelper
@@ -20,45 +22,36 @@ import ru.bmstu.libraryapp.presentation.views.adapters.LibraryItemAdapter
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.launch
-import ru.bmstu.common.types.DetailMode
 import ru.bmstu.common.types.DiskType
 import ru.bmstu.common.types.LibraryMode
 import ru.bmstu.common.types.Month
-import ru.bmstu.data.datasources.InMemoryDataSource
 import ru.bmstu.data.filters.LibraryFilter
 import ru.bmstu.data.filters.SortBy
-import ru.bmstu.data.network.NetworkModule.googleBooksService
-import ru.bmstu.data.repositories.impl.GoogleBooksRepositoryImpl
-import ru.bmstu.data.repositories.impl.LibraryRepositoryImpl
 import ru.bmstu.domain.models.LibraryItemType
-import ru.bmstu.domain.repositories.GoogleBooksRepository
-import ru.bmstu.domain.repositories.LibraryRepository
-import ru.bmstu.libraryapp.presentation.viewmodels.ViewModelFactory
+import ru.bmstu.domain.types.DetailMode
+import ru.bmstu.libraryapp.MainApplication
 import ru.bmstu.libraryapp.presentation.viewmodels.state.MainViewState
 import ru.bmstu.libraryapp.presentation.viewmodels.SearchViewModel
+import javax.inject.Inject
 
 class LibraryListFragment : BaseFragment() {
+
+    @Inject
+    lateinit var viewModelFactory: ViewModelProvider.Factory
+
+    private val viewModel: MainViewModel by viewModels { viewModelFactory }
+    private val searchViewModel: SearchViewModel by viewModels { viewModelFactory }
+
+    override fun onAttach(context: Context) {
+        super.onAttach(context)
+        MainApplication.get(context).appComponent.inject(this)
+    }
+
     private var _binding: FragmentLibraryListBinding? = null
     private val binding get() = _binding!!
     private var lastCreatedItemId: Int? = null
     private var lastDeletedItem: LibraryItemType? = null
     private lateinit var adapter: LibraryItemAdapter
-
-    private val repository: LibraryRepository by lazy {
-        LibraryRepositoryImpl(InMemoryDataSource.getInstance())
-    }
-
-    private val googleBooksRepository: GoogleBooksRepository by lazy {
-        GoogleBooksRepositoryImpl(googleBooksService, requireContext())
-    }
-
-    val viewModel: MainViewModel by viewModels {
-        ViewModelFactory.create(repository, googleBooksRepository, requireContext())
-    }
-
-    private val searchViewModel: SearchViewModel by viewModels {
-        ViewModelFactory.create(repository, googleBooksRepository, requireContext())
-    }
 
     private var isSearchMode = false
     private var libraryMode = LibraryMode.LOCAL

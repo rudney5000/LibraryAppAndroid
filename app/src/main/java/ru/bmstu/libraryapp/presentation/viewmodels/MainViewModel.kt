@@ -16,8 +16,9 @@ import ru.bmstu.domain.usecases.GetAllBooksUseCase
 import ru.bmstu.domain.usecases.GetAllDisksUseCase
 import ru.bmstu.domain.usecases.GetAllNewspapersUseCase
 import ru.bmstu.libraryapp.presentation.viewmodels.state.MainViewState
+import javax.inject.Inject
 
-class MainViewModel(
+class MainViewModel @Inject constructor(
     private val getAllBooksUseCase: GetAllBooksUseCase,
     private val getAllNewspapersUseCase: GetAllNewspapersUseCase,
     private val getAllDisksUseCase: GetAllDisksUseCase,

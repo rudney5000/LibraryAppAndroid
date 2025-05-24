@@ -3,9 +3,9 @@ package ru.bmstu.libraryapp.presentation.viewmodels
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import ru.bmstu.common.result.ApiResult
-import ru.bmstu.common.types.DetailMode
 import ru.bmstu.common.types.LibraryItem
 import ru.bmstu.domain.models.LibraryItemType
+import ru.bmstu.domain.types.DetailMode
 import ru.bmstu.domain.usecases.AddBookUseCase
 import ru.bmstu.domain.usecases.AddNewspaperUseCase
 import ru.bmstu.domain.usecases.AddDiskUseCase
@@ -14,7 +14,7 @@ import ru.bmstu.domain.usecases.UpdateNewspaperUseCase
 import ru.bmstu.domain.usecases.UpdateDiskUseCase
 import javax.inject.Inject
 
-class LibraryItemDetailViewModel @Inject constructor(
+class LibraryItemDetailViewModel(
     private val addBookUseCase: AddBookUseCase,
     private val addNewspaperUseCase: AddNewspaperUseCase,
     private val addDiskUseCase: AddDiskUseCase,
@@ -73,5 +73,27 @@ class LibraryItemDetailViewModel @Inject constructor(
             is LibraryItemType.Disk -> updateDiskUseCase(item)
             else -> ApiResult.Error(-1, "Type not supported")
         } as ApiResult<Unit>
+    }
+
+    class Factory @Inject constructor(
+        private val addBookUseCase: AddBookUseCase,
+        private val addNewspaperUseCase: AddNewspaperUseCase,
+        private val addDiskUseCase: AddDiskUseCase,
+        private val updateBookUseCase: UpdateBookUseCase,
+        private val updateNewspaperUseCase: UpdateNewspaperUseCase,
+        private val updateDiskUseCase: UpdateDiskUseCase
+    ) {
+        fun create(initialItem: LibraryItem?, mode: DetailMode): LibraryItemDetailViewModel {
+            return LibraryItemDetailViewModel(
+                addBookUseCase,
+                addNewspaperUseCase,
+                addDiskUseCase,
+                updateBookUseCase,
+                updateNewspaperUseCase,
+                updateDiskUseCase,
+                initialItem,
+                mode
+            )
+        }
     }
 }

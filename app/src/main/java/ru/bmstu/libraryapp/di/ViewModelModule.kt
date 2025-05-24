@@ -1,50 +1,28 @@
 package ru.bmstu.libraryapp.di
 
-import android.content.Context
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import dagger.Binds
 import dagger.Module
-import dagger.Provides
-import ru.bmstu.data.repositories.impl.GoogleBooksRepositoryImpl
-import ru.bmstu.data.network.NetworkModule
-import ru.bmstu.domain.repositories.GoogleBooksRepository
-import ru.bmstu.domain.repositories.LibraryRepository
-import ru.bmstu.domain.usecases.*
+import dagger.multibindings.IntoMap
+import ru.bmstu.libraryapp.presentation.viewmodels.MainViewModel
+import ru.bmstu.libraryapp.presentation.viewmodels.SearchViewModel
 import ru.bmstu.libraryapp.presentation.viewmodels.ViewModelFactory
-import javax.inject.Singleton
 
 @Module
-class ViewModelModule {
+abstract class ViewModelModule {
 
-    @Provides
-    @Singleton
-    fun provideViewModelFactory(
-        getAllBooksUseCase: GetAllBooksUseCase,
-        getAllNewspapersUseCase: GetAllNewspapersUseCase,
-        getAllDisksUseCase: GetAllDisksUseCase,
-        deleteItemUseCase: DeleteItemUseCase,
-        addBookUseCase: AddBookUseCase,
-        addNewspaperUseCase: AddNewspaperUseCase,
-        addDiskUseCase: AddDiskUseCase,
-        updateBookUseCase: UpdateBookUseCase,
-        updateNewspaperUseCase: UpdateNewspaperUseCase,
-        updateDiskUseCase: UpdateDiskUseCase,
-        searchBooksUseCase: SearchBooksUseCase,
-        googleBooksRepository: GoogleBooksRepository,
-        context: Context
-    ): ViewModelFactory {
-        return ViewModelFactory(
-            getAllBooksUseCase,
-            getAllNewspapersUseCase,
-            getAllDisksUseCase,
-            deleteItemUseCase,
-            addBookUseCase,
-            addNewspaperUseCase,
-            addDiskUseCase,
-            updateBookUseCase,
-            updateNewspaperUseCase,
-            updateDiskUseCase,
-            searchBooksUseCase,
-            googleBooksRepository,
-            context
-        )
-    }
+    @Binds
+    abstract fun bindViewModelFactory(factory: ViewModelFactory): ViewModelProvider.Factory
+
+    @Binds
+    @IntoMap
+    @ViewModelKey(MainViewModel::class)
+    abstract fun bindMainViewModel(viewModel: MainViewModel): ViewModel
+
+    @Binds
+    @IntoMap
+    @ViewModelKey(SearchViewModel::class)
+    abstract fun bindSearchViewModel(viewModel: SearchViewModel): ViewModel
+
 }

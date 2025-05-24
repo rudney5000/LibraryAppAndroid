@@ -63,11 +63,6 @@ class DomainModule {
     }
 
     @Provides
-    fun provideGoogleBooksRepository(context: Context): GoogleBooksRepository {
-        return GoogleBooksRepositoryImpl(NetworkModule.googleBooksService, context)
-    }
-
-    @Provides
     fun provideSearchBooksUseCase(
         libraryRepository: LibraryRepository,
         googleBooksRepository: GoogleBooksRepository

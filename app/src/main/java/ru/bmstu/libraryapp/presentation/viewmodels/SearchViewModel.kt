@@ -8,8 +8,9 @@ import ru.bmstu.domain.models.LibraryItemType
 import ru.bmstu.domain.usecases.SearchBooksUseCase
 import ru.bmstu.libraryapp.presentation.viewmodels.state.MainViewState
 import ru.bmstu.common.types.LibraryMode
+import javax.inject.Inject
 
-class SearchViewModel(
+class SearchViewModel @Inject constructor(
     private val searchBooksUseCase: SearchBooksUseCase
 ) : BaseViewModel() {
 

@@ -2,23 +2,28 @@ package ru.bmstu.libraryapp.presentation.viewmodels
 
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import ru.bmstu.libraryapp.domain.entities.DetailMode
-import ru.bmstu.libraryapp.domain.entities.LibraryItem
-import ru.bmstu.libraryapp.domain.entities.LibraryItemType
-import ru.bmstu.libraryapp.domain.repositories.LibraryRepository
-import ru.bmstu.libraryapp.domain.exceptions.LibraryException
-import kotlin.coroutines.cancellation.CancellationException
+import ru.bmstu.common.result.ApiResult
+import ru.bmstu.common.types.LibraryItem
+import ru.bmstu.domain.models.LibraryItemType
+import ru.bmstu.domain.types.DetailMode
+import ru.bmstu.domain.usecases.AddBookUseCase
+import ru.bmstu.domain.usecases.AddNewspaperUseCase
+import ru.bmstu.domain.usecases.AddDiskUseCase
+import ru.bmstu.domain.usecases.UpdateBookUseCase
+import ru.bmstu.domain.usecases.UpdateNewspaperUseCase
+import ru.bmstu.domain.usecases.UpdateDiskUseCase
+import javax.inject.Inject
 
 class LibraryItemDetailViewModel(
-    private val repository: LibraryRepository,
+    private val addBookUseCase: AddBookUseCase,
+    private val addNewspaperUseCase: AddNewspaperUseCase,
+    private val addDiskUseCase: AddDiskUseCase,
+    private val updateBookUseCase: UpdateBookUseCase,
+    private val updateNewspaperUseCase: UpdateNewspaperUseCase,
+    private val updateDiskUseCase: UpdateDiskUseCase,
     initialItem: LibraryItem?,
-    private val mode: DetailMode
-) : ViewModel() {
+    private var mode: DetailMode
+) : BaseViewModel() {
 
     private val _item = MutableLiveData<LibraryItem?>()
     val item: LiveData<LibraryItem?> = _item
@@ -26,77 +31,69 @@ class LibraryItemDetailViewModel(
     private val _saveSuccess = MutableLiveData<Boolean>()
     val saveSuccess: LiveData<Boolean> = _saveSuccess
 
-    private val _loading = MutableLiveData<Boolean>()
-
-    private val _error = MutableLiveData<String?>()
-    val error: LiveData<String?> = _error
 
     init {
         _item.value = initialItem
     }
 
     fun saveItem(updatedItem: LibraryItem) {
-        viewModelScope.launch(Dispatchers.IO) {
-            _loading.postValue(true)
-            try {
-                val result = when (mode) {
-                    DetailMode.CREATE -> {
-                        createItem(updatedItem)
-                    }
-                    DetailMode.EDIT -> {
-                        updateItem(updatedItem)
-                    }
-                    else -> {
-                        Result.failure(LibraryException.UpdateError("Invalid mode"))
-                    }
+        launchAndHandle(
+            onFetch = {
+                when (mode) {
+                    DetailMode.CREATE -> createItem(updatedItem)
+                    DetailMode.EDIT -> updateItem(updatedItem)
+                    else -> ApiResult.Error(-1, "Invalid mode")
                 }
-
-                if (result.isSuccess) {
-                    _item.postValue(updatedItem)
-                    _saveSuccess.postValue(true)
-                } else {
-                    throw result.exceptionOrNull() ?: LibraryException.LoadError("Unknown erro")
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _error.postValue(e.message)
-                _saveSuccess.postValue(false)
-            } finally {
-                _loading.postValue(false)
+            },
+            onSuccess = {
+                _item.postValue(updatedItem)
+                _saveSuccess.postValue(true)
             }
-        }
+        )
     }
 
-    private suspend fun createItem(item: LibraryItem): Result<Unit> {
+    fun initialize(initialItem: LibraryItem?, detailMode: DetailMode) {
+        _item.value = initialItem
+        mode = detailMode
+    }
+
+    private suspend fun createItem(item: LibraryItem): ApiResult<Unit> {
         return when (item) {
-            is LibraryItemType.Book -> repository.addBook(item)
-            is LibraryItemType.Newspaper -> repository.addNewspaper(item)
-            is LibraryItemType.Disk -> repository.addDisk(item)
-            else -> Result.failure(LibraryException.SaveError("Type element not supported"))
-        }
+            is LibraryItemType.Book -> addBookUseCase(item)
+            is LibraryItemType.Newspaper -> addNewspaperUseCase(item)
+            is LibraryItemType.Disk -> addDiskUseCase(item)
+            else -> ApiResult.Error(-1, "Type not supported")
+        } as ApiResult<Unit>
     }
 
-    private suspend fun updateItem(item: LibraryItem): Result<Unit> {
+    private suspend fun updateItem(item: LibraryItem): ApiResult<Unit> {
         return when (item) {
-            is LibraryItemType.Book -> repository.updateBook(item)
-            is LibraryItemType.Newspaper -> repository.updateNewspaper(item)
-            is LibraryItemType.Disk -> repository.updateDisk(item)
-            else -> Result.failure(LibraryException.UpdateError("Type element not supported"))
-        }
+            is LibraryItemType.Book -> updateBookUseCase(item)
+            is LibraryItemType.Newspaper -> updateNewspaperUseCase(item)
+            is LibraryItemType.Disk -> updateDiskUseCase(item)
+            else -> ApiResult.Error(-1, "Type not supported")
+        } as ApiResult<Unit>
     }
 
-    class Factory(
-        private val repository: LibraryRepository,
-        private val initialItem: LibraryItem?,
-        private val mode: DetailMode
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(LibraryItemDetailViewModel::class.java)) {
-                return LibraryItemDetailViewModel(repository, initialItem, mode) as T
-            }
-            throw LibraryException.LoadError("Unknown ViewModel class")
+    class Factory @Inject constructor(
+        private val addBookUseCase: AddBookUseCase,
+        private val addNewspaperUseCase: AddNewspaperUseCase,
+        private val addDiskUseCase: AddDiskUseCase,
+        private val updateBookUseCase: UpdateBookUseCase,
+        private val updateNewspaperUseCase: UpdateNewspaperUseCase,
+        private val updateDiskUseCase: UpdateDiskUseCase
+    ) {
+        fun create(initialItem: LibraryItem?, mode: DetailMode): LibraryItemDetailViewModel {
+            return LibraryItemDetailViewModel(
+                addBookUseCase,
+                addNewspaperUseCase,
+                addDiskUseCase,
+                updateBookUseCase,
+                updateNewspaperUseCase,
+                updateDiskUseCase,
+                initialItem,
+                mode
+            )
         }
     }
 }

@@ -1,5 +1,6 @@
 package ru.bmstu.libraryapp.presentation.views.fragments
 
+import android.content.Context
 import android.content.res.Configuration
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -7,40 +8,62 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.Toast
-import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.launch
+import ru.bmstu.common.types.DiskType
+import ru.bmstu.common.types.Month
+import ru.bmstu.domain.models.LibraryItemType
+import ru.bmstu.domain.types.DetailMode
+import ru.bmstu.libraryapp.MainApplication
 import ru.bmstu.libraryapp.R
-import ru.bmstu.libraryapp.data.datasources.InMemoryDataSource
-import ru.bmstu.libraryapp.data.repositories.LibraryRepositoryImpl
 import ru.bmstu.libraryapp.databinding.ActivityLibraryItemDetailBinding
 import ru.bmstu.libraryapp.databinding.ItemDetailFieldBinding
-import ru.bmstu.libraryapp.domain.entities.*
-import ru.bmstu.libraryapp.domain.repositories.LibraryRepository
 import ru.bmstu.libraryapp.presentation.viewmodels.LibraryItemDetailViewModel
+import ru.bmstu.libraryapp.presentation.viewmodels.state.MainViewState
+import javax.inject.Inject
 
 class LibraryItemDetailFragment : BaseFragment() {
+
+    @Inject
+    lateinit var viewModelFactory: ViewModelProvider.Factory
+
+    @Inject
+    lateinit var detailViewModelFactory: LibraryItemDetailViewModel.Factory
+
+    private val viewModel by lazy {
+        detailViewModelFactory.create(item, mode)
+    }
+
+    override fun onAttach(context: Context) {
+        super.onAttach(context)
+        MainApplication.get(context).appComponent.inject(this)
+    }
+
     private var _binding: ActivityLibraryItemDetailBinding? = null
 
-    private val repository: LibraryRepository by lazy {
-        LibraryRepositoryImpl(InMemoryDataSource.getInstance())
-    }
     private val binding get() = _binding!!
     
     private var item: LibraryItemType? = null
     private var mode: DetailMode = DetailMode.VIEW
     private var scrollPosition = 0
 
-    private val viewModel: LibraryItemDetailViewModel by viewModels {
-        LibraryItemDetailViewModel.Factory(
-            repository = repository,
-            initialItem = item,
-            mode = mode
-        )
-    }
-    
     private val specificFields = mutableMapOf<String, EditText>()
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        (requireActivity().application as MainApplication).appComponent.inject(this)
+
+        arguments?.let {
+            item = it.getParcelable(ARG_ITEM)
+            mode = DetailMode.valueOf(it.getString(ARG_MODE, DetailMode.VIEW.name))
+        }
+
+        viewModel.initialize(item, mode)
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -238,22 +261,20 @@ class LibraryItemDetailFragment : BaseFragment() {
         }
     }
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        arguments?.let {
-            item = it.getParcelable(ARG_ITEM)
-            mode = DetailMode.valueOf(it.getString(ARG_MODE, DetailMode.VIEW.name))
-        }
-    }
-
     private fun observeViewModel() {
-        viewModel.item.observe(viewLifecycleOwner) { item ->
-            item?.let { setupViews() }
-        }
-
-        viewModel.error.observe(viewLifecycleOwner) { errorMessage ->
-            errorMessage?.let {
-                Toast.makeText(requireContext(), it, Toast.LENGTH_LONG).show()
+        viewLifecycleOwner.lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.state.collect { uiState ->
+                    when (uiState) {
+                        is MainViewState.Loading -> {
+                        }
+                        is MainViewState.Success -> {
+                        }
+                        is MainViewState.Error -> {
+                            Toast.makeText(requireContext(), uiState.message, Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
             }
         }
 
